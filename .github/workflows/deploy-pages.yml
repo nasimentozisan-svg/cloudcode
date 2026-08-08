@@ -1,4 +1,4 @@
-name: Deploy tactics board to GitHub Pages
+name: Deploy EFK apps to GitHub Pages
 
 on:
   push:
