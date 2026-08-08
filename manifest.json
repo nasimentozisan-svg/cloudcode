@@ -1,6 +1,6 @@
 {
-  "name": "EFK フットサルタイマー",
-  "short_name": "フットサル",
+  "name": "EFKtime",
+  "short_name": "EFKtime",
   "description": "フットサル練習・試合用のメイン/サブタイマーと得点表示アプリ",
   "start_url": "./index.html",
   "scope": "./",
