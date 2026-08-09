@@ -1,0 +1,17 @@
+{
+  "name": "戦術ノート",
+  "short_name": "戦術ノート",
+  "description": "efktacで録画した戦術動画をチームで共有するアプリ",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
