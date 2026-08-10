@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { CATEGORY_LABELS, VIDEO_CATEGORIES, type VideoCategory } from "@/lib/categories";
 import UploadForm from "./UploadForm";
 import SignOutButton from "./SignOutButton";
+import DeleteVideoButton from "./DeleteVideoButton";
 
 export default async function CoachDashboardPage() {
   const supabase = await createSupabaseServerClient();
@@ -69,10 +70,13 @@ export default async function CoachDashboardPage() {
               ) : (
                 <ul className="space-y-2">
                   {list.map((v) => (
-                    <li key={v.id}>
+                    <li
+                      key={v.id}
+                      className="flex items-start gap-3 rounded-md border border-slate-200 bg-white p-3"
+                    >
                       <Link
                         href={`/watch/${team.invite_code}/video/${v.id}`}
-                        className="block rounded-md border border-slate-200 bg-white p-3 hover:bg-slate-50"
+                        className="min-w-0 flex-1 hover:opacity-70"
                       >
                         <p className="font-medium">{v.title}</p>
                         {v.description && (
@@ -81,6 +85,7 @@ export default async function CoachDashboardPage() {
                           </p>
                         )}
                       </Link>
+                      <DeleteVideoButton videoId={v.id} />
                     </li>
                   ))}
                 </ul>
