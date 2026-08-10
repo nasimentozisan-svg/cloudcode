@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { CATEGORY_LABELS, VIDEO_CATEGORIES, type VideoCategory } from "@/lib/categories";
@@ -68,16 +69,18 @@ export default async function CoachDashboardPage() {
               ) : (
                 <ul className="space-y-2">
                   {list.map((v) => (
-                    <li
-                      key={v.id}
-                      className="rounded-md border border-slate-200 bg-white p-3"
-                    >
-                      <p className="font-medium">{v.title}</p>
-                      {v.description && (
-                        <p className="mt-1 text-sm text-slate-500">
-                          {v.description}
-                        </p>
-                      )}
+                    <li key={v.id}>
+                      <Link
+                        href={`/watch/${team.invite_code}/video/${v.id}`}
+                        className="block rounded-md border border-slate-200 bg-white p-3 hover:bg-slate-50"
+                      >
+                        <p className="font-medium">{v.title}</p>
+                        {v.description && (
+                          <p className="mt-1 text-sm text-slate-500">
+                            {v.description}
+                          </p>
+                        )}
+                      </Link>
                     </li>
                   ))}
                 </ul>
