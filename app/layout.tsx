@@ -5,6 +5,10 @@ export const metadata: Metadata = {
   title: "戦術ノート",
   description: "efktacで録画した戦術動画をチームで共有するアプリ",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/icon.png",
+    apple: "/icon.png",
+  },
 };
 
 export const viewport: Viewport = {
