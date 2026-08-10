@@ -1,6 +1,6 @@
 {
-  "name": "戦術ノート",
-  "short_name": "戦術ノート",
+  "name": "TAC view",
+  "short_name": "TAC view",
   "description": "efktacで録画した戦術動画をチームで共有するアプリ",
   "start_url": "/",
   "display": "standalone",
@@ -12,12 +12,6 @@
       "sizes": "1254x1254",
       "type": "image/png",
       "purpose": "any"
-    },
-    {
-      "src": "/icon.png",
-      "sizes": "1254x1254",
-      "type": "image/png",
-      "purpose": "maskable"
     }
   ]
 }

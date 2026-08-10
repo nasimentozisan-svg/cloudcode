@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "戦術ノート",
+  title: "TAC view",
   description: "efktacで録画した戦術動画をチームで共有するアプリ",
   manifest: "/manifest.json",
   icons: {
