@@ -11,7 +11,8 @@ export default async function AdminPage() {
   if (!user.isAdmin) redirect("/dashboard");
 
   const users = await prisma.user.findMany({
-    orderBy: [{ category: "asc" }, { name: "asc" }],
+    orderBy: { name: "asc" },
+    include: { categories: true },
   });
 
   return (

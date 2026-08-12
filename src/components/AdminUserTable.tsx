@@ -3,23 +3,26 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  updateUserCategoryAction,
+  updateUserCategoriesAction,
   toggleAdminAction,
   deleteUserAction,
 } from "@/lib/actions/admin";
-import { CATEGORY_LABELS, CATEGORY_OPTIONS } from "@/lib/categories";
-import type { User } from "@/generated/prisma/client";
+import { CATEGORY_LABELS, CATEGORY_OPTIONS, formatCategories } from "@/lib/categories";
+import type { Category, User, UserCategory } from "@/generated/prisma/client";
+
+type UserWithCategories = User & { categories: UserCategory[] };
 
 export default function AdminUserTable({
   users,
   currentUserId,
 }: {
-  users: User[];
+  users: UserWithCategories[];
   currentUserId: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   function run(action: () => Promise<void>) {
     setError(null);
@@ -56,20 +59,26 @@ export default function AdminUserTable({
                   {u.uniformNumber ?? "-"}
                 </td>
                 <td className="px-4 py-2">
-                  <select
-                    defaultValue={u.category}
-                    disabled={isPending}
-                    onChange={(e) =>
-                      run(() => updateUserCategoryAction(u.id, e.target.value))
-                    }
-                    className="rounded-md border border-gray-300 px-2 py-1 text-sm"
-                  >
-                    {CATEGORY_OPTIONS.map((c) => (
-                      <option key={c} value={c}>
-                        {CATEGORY_LABELS[c]}
-                      </option>
-                    ))}
-                  </select>
+                  {editingId === u.id ? (
+                    <CategoryEditor
+                      current={u.categories.map((c) => c.category)}
+                      disabled={isPending}
+                      onCancel={() => setEditingId(null)}
+                      onSave={(next) =>
+                        run(async () => {
+                          await updateUserCategoriesAction(u.id, next);
+                          setEditingId(null);
+                        })
+                      }
+                    />
+                  ) : (
+                    <button
+                      onClick={() => setEditingId(u.id)}
+                      className="text-left text-gray-700 hover:underline"
+                    >
+                      {formatCategories(u.categories.map((c) => c.category)) || "未設定"}
+                    </button>
+                  )}
                 </td>
                 <td className="px-4 py-2 text-gray-500">{u.email}</td>
                 <td className="px-4 py-2">
@@ -104,6 +113,60 @@ export default function AdminUserTable({
             ))}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+function CategoryEditor({
+  current,
+  disabled,
+  onSave,
+  onCancel,
+}: {
+  current: Category[];
+  disabled: boolean;
+  onSave: (categories: string[]) => void;
+  onCancel: () => void;
+}) {
+  const [selected, setSelected] = useState<Category[]>(current);
+
+  function toggle(c: Category) {
+    setSelected((prev) =>
+      prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]
+    );
+  }
+
+  return (
+    <div className="w-56 space-y-2 rounded-md border border-gray-300 bg-white p-2 shadow-sm">
+      <div className="grid grid-cols-1 gap-1">
+        {CATEGORY_OPTIONS.map((c) => (
+          <label key={c} className="flex items-center gap-2 text-xs text-gray-700">
+            <input
+              type="checkbox"
+              checked={selected.includes(c)}
+              onChange={() => toggle(c)}
+            />
+            {CATEGORY_LABELS[c]}
+          </label>
+        ))}
+      </div>
+      <div className="flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="text-xs text-gray-500 hover:underline"
+        >
+          キャンセル
+        </button>
+        <button
+          type="button"
+          disabled={disabled || selected.length === 0}
+          onClick={() => onSave(selected)}
+          className="rounded-md bg-emerald-600 px-2 py-1 text-xs font-medium text-white disabled:opacity-50"
+        >
+          保存
+        </button>
       </div>
     </div>
   );

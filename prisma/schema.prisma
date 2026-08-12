@@ -21,20 +21,23 @@ enum Category {
   U18_COACH
 }
 
-enum UserRole {
-  PLAYER
-  COACH
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  passwordHash  String
+  name          String
+  uniformNumber Int?
+  isAdmin       Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  categories    UserCategory[]
 }
 
-model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  name         String
-  uniformNumber Int?
-  category     Category
-  role         UserRole
-  isAdmin      Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+model UserCategory {
+  id       String   @id @default(cuid())
+  userId   String
+  category Category
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, category])
 }

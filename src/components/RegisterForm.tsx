@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { registerAction, type ActionState } from "@/lib/actions/auth";
-import CategoryOptions from "@/components/CategoryOptions";
+import CategoryCheckboxGroup from "@/components/CategoryCheckboxGroup";
 import SubmitButton from "@/components/SubmitButton";
 
 const initialState: ActionState = {};
@@ -24,18 +24,12 @@ export default function RegisterForm() {
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700">カテゴリー</label>
-        <select
-          name="category"
-          required
-          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-          defaultValue=""
-        >
-          <option value="" disabled>
-            選択してください
-          </option>
-          <CategoryOptions />
-        </select>
+        <label className="block text-sm font-medium text-gray-700">
+          カテゴリー（複数選択可）
+        </label>
+        <div className="mt-1">
+          <CategoryCheckboxGroup />
+        </div>
       </div>
 
       <div>

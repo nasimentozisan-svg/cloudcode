@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "フットサルクラブ管理アプリ",
+  title: "EFK menbers",
   description: "スケジュール・出欠・メッセージを一元管理",
 };
 

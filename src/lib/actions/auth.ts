@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { createSession, destroySession } from "@/lib/session";
 import { registerSchema, loginSchema } from "@/lib/validation";
-import { roleForCategory } from "@/lib/categories";
 import type { Category } from "@/generated/prisma/client";
 
 export type ActionState = { error?: string };
@@ -18,7 +17,7 @@ export async function registerAction(
     name: formData.get("name"),
     email: formData.get("email"),
     password: formData.get("password"),
-    category: formData.get("category"),
+    categories: formData.getAll("categories"),
     uniformNumber: formData.get("uniformNumber"),
   });
 
@@ -26,7 +25,7 @@ export async function registerAction(
     return { error: parsed.error.issues[0]?.message ?? "入力内容を確認してください" };
   }
 
-  const { name, email, password, category, uniformNumber } = parsed.data;
+  const { name, email, password, categories, uniformNumber } = parsed.data;
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
@@ -40,9 +39,10 @@ export async function registerAction(
       name,
       email,
       passwordHash,
-      category: category as Category,
-      role: roleForCategory(category as Category),
       uniformNumber: uniformNumber ?? null,
+      categories: {
+        create: (categories as Category[]).map((category) => ({ category })),
+      },
     },
   });
 

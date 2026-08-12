@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { createUserByAdminAction } from "@/lib/actions/admin";
 import type { ActionState } from "@/lib/actions/auth";
-import CategoryOptions from "@/components/CategoryOptions";
+import CategoryCheckboxGroup from "@/components/CategoryCheckboxGroup";
 import SubmitButton from "@/components/SubmitButton";
 
 const initialState: ActionState = {};
@@ -19,17 +19,6 @@ export default function AdminCreateUserForm() {
         placeholder="名前"
         className="rounded-md border border-gray-300 px-3 py-2 text-sm"
       />
-      <select
-        name="category"
-        required
-        defaultValue=""
-        className="rounded-md border border-gray-300 px-3 py-2 text-sm"
-      >
-        <option value="" disabled>
-          カテゴリーを選択
-        </option>
-        <CategoryOptions />
-      </select>
       <input
         name="uniformNumber"
         type="number"
@@ -38,6 +27,12 @@ export default function AdminCreateUserForm() {
         placeholder="背番号（任意）"
         className="rounded-md border border-gray-300 px-3 py-2 text-sm"
       />
+
+      <div className="sm:col-span-2">
+        <p className="mb-1 text-sm text-gray-500">カテゴリー（複数選択可）</p>
+        <CategoryCheckboxGroup />
+      </div>
+
       <input
         name="email"
         type="email"
@@ -51,7 +46,7 @@ export default function AdminCreateUserForm() {
         required
         minLength={8}
         placeholder="初期パスワード（8文字以上）"
-        className="rounded-md border border-gray-300 px-3 py-2 text-sm sm:col-span-2"
+        className="rounded-md border border-gray-300 px-3 py-2 text-sm"
       />
 
       {state.error && (

@@ -5,7 +5,6 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/current-user";
 import { registerSchema, categoryEnum } from "@/lib/validation";
-import { roleForCategory } from "@/lib/categories";
 import type { Category } from "@/generated/prisma/client";
 import type { ActionState } from "@/lib/actions/auth";
 
@@ -27,7 +26,7 @@ export async function createUserByAdminAction(
     name: formData.get("name"),
     email: formData.get("email"),
     password: formData.get("password"),
-    category: formData.get("category"),
+    categories: formData.getAll("categories"),
     uniformNumber: formData.get("uniformNumber"),
   });
 
@@ -35,7 +34,7 @@ export async function createUserByAdminAction(
     return { error: parsed.error.issues[0]?.message ?? "入力内容を確認してください" };
   }
 
-  const { name, email, password, category, uniformNumber } = parsed.data;
+  const { name, email, password, categories, uniformNumber } = parsed.data;
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
@@ -49,9 +48,10 @@ export async function createUserByAdminAction(
       name,
       email,
       passwordHash,
-      category: category as Category,
-      role: roleForCategory(category as Category),
       uniformNumber: uniformNumber ?? null,
+      categories: {
+        create: (categories as Category[]).map((category) => ({ category })),
+      },
     },
   });
 
@@ -59,18 +59,17 @@ export async function createUserByAdminAction(
   return {};
 }
 
-export async function updateUserCategoryAction(userId: string, category: string) {
+export async function updateUserCategoriesAction(userId: string, categories: string[]) {
   await requireAdmin();
-  const parsed = categoryEnum.safeParse(category);
+  const parsed = categoryEnum.array().min(1).safeParse(categories);
   if (!parsed.success) return;
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      category: parsed.data as Category,
-      role: roleForCategory(parsed.data as Category),
-    },
-  });
+  await prisma.$transaction([
+    prisma.userCategory.deleteMany({ where: { userId } }),
+    prisma.userCategory.createMany({
+      data: parsed.data.map((category) => ({ userId, category: category as Category })),
+    }),
+  ]);
 
   revalidatePath("/admin");
 }

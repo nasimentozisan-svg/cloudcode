@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/current-user";
 import AppShell from "@/components/AppShell";
-import { CATEGORY_LABELS } from "@/lib/categories";
+import { formatCategories } from "@/lib/categories";
 
 const PLACEHOLDER_CARDS = [
   {
@@ -31,7 +31,7 @@ export default async function DashboardPage() {
           <dd className="col-span-1 sm:col-span-3">{user.name}</dd>
           <dt className="text-gray-500">カテゴリー</dt>
           <dd className="col-span-1 sm:col-span-3">
-            {CATEGORY_LABELS[user.category]}
+            {formatCategories(user.categories.map((c) => c.category))}
           </dd>
           <dt className="text-gray-500">背番号</dt>
           <dd className="col-span-1 sm:col-span-3">

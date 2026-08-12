@@ -9,7 +9,9 @@ export const registerSchema = z.object({
   name: z.string().trim().min(1, "名前を入力してください").max(50),
   email: z.string().trim().email("メールアドレスの形式が正しくありません"),
   password: z.string().min(8, "パスワードは8文字以上にしてください").max(100),
-  category: categoryEnum,
+  categories: z
+    .array(categoryEnum)
+    .min(1, "カテゴリーを1つ以上選択してください"),
   uniformNumber: z
     .string()
     .nullable()

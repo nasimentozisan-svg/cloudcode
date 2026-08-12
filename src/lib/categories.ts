@@ -1,4 +1,4 @@
-import { Category, UserRole } from "@/generated/prisma/client";
+import { Category } from "@/generated/prisma/client";
 
 export const CATEGORY_LABELS: Record<Category, string> = {
   TOP_PLAYER: "トップ選手",
@@ -11,10 +11,17 @@ export const CATEGORY_LABELS: Record<Category, string> = {
 
 export const CATEGORY_OPTIONS = Object.keys(CATEGORY_LABELS) as Category[];
 
-export function roleForCategory(category: Category): UserRole {
-  return category.endsWith("_COACH") ? "COACH" : "PLAYER";
+export function isPlayerCategory(category: Category): boolean {
+  return !category.endsWith("_COACH");
 }
 
-export function isPlayerCategory(category: Category): boolean {
-  return roleForCategory(category) === "PLAYER";
+export function categoriesIncludePlayer(categories: Category[]): boolean {
+  return categories.some(isPlayerCategory);
+}
+
+export function formatCategories(categories: Category[]): string {
+  return [...categories]
+    .sort((a, b) => CATEGORY_OPTIONS.indexOf(a) - CATEGORY_OPTIONS.indexOf(b))
+    .map((c) => CATEGORY_LABELS[c])
+    .join(" / ");
 }
