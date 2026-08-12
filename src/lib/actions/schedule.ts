@@ -6,7 +6,11 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/current-user";
 import { canManageSchedule } from "@/lib/schedule-permissions";
 import { createEventSchema } from "@/lib/validation";
+import { sendNotificationEmails, escapeHtml } from "@/lib/email";
+import { CATEGORY_LABELS } from "@/lib/categories";
 import type { AttendanceStatus, Category } from "@/generated/prisma/client";
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
 
 export type ActionState = { error?: string };
 
@@ -49,6 +53,31 @@ export async function createEventAction(
       },
     },
   });
+
+  const recipients = await prisma.user.findMany({
+    where: {
+      id: { not: user.id },
+      receiveEmailNotifications: true,
+      categories: { some: { category: { in: categories as Category[] } } },
+    },
+    select: { email: true },
+  });
+  const dateLabel = startAtDate.toLocaleString("ja-JP", {
+    month: "numeric",
+    day: "numeric",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  await sendNotificationEmails(
+    recipients,
+    `【EFK members】新しい予定が作成されました: ${title}`,
+    `<p>新しい予定が作成されました。</p>
+    <p><strong>${escapeHtml(title)}</strong><br>
+    ${dateLabel}${location ? ` ・ ${escapeHtml(location)}` : ""}<br>
+    対象: ${(categories as Category[]).map((c) => CATEGORY_LABELS[c]).join(" / ")}</p>
+    ${APP_URL ? `<p><a href="${APP_URL}/schedule">スケジュールを確認する</a></p>` : ""}`
+  );
 
   revalidatePath("/schedule");
   revalidatePath("/dashboard");

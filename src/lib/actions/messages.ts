@@ -6,7 +6,10 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/current-user";
 import { canAccessChannel } from "@/lib/channels";
 import { createChannelSchema, messageBodySchema } from "@/lib/validation";
+import { sendNotificationEmails, escapeHtml } from "@/lib/email";
 import type { Category } from "@/generated/prisma/client";
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
 
 export type ActionState = { error?: string };
 
@@ -71,6 +74,19 @@ export async function postMessageAction(channelId: string, body: string) {
   await prisma.message.create({
     data: { channelId, authorId: user.id, body: parsed.data },
   });
+
+  const allUsers = await prisma.user.findMany({
+    where: { id: { not: user.id }, receiveEmailNotifications: true },
+    select: { id: true, email: true, isAdmin: true, categories: { select: { category: true } } },
+  });
+  const recipients = allUsers.filter((u) => canAccessChannel(u, channel));
+  await sendNotificationEmails(
+    recipients,
+    `【EFK members】# ${channel.name} に新着メッセージ`,
+    `<p><strong>${escapeHtml(user.name)}</strong> さんが # ${escapeHtml(channel.name)} に投稿しました。</p>
+    <p style="white-space:pre-wrap">${escapeHtml(parsed.data)}</p>
+    ${APP_URL ? `<p><a href="${APP_URL}/messages/${channelId}">チャンネルを開く</a></p>` : ""}`
+  );
 
   const count = await prisma.message.count({ where: { channelId } });
   if (count > MAX_MESSAGES_PER_CHANNEL) {

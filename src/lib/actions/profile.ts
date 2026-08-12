@@ -37,3 +37,15 @@ export async function updateSizesAction(
   revalidatePath("/dashboard");
   return {};
 }
+
+export async function updateNotificationPrefAction(receiveEmailNotifications: boolean) {
+  const user = await getCurrentUser();
+  if (!user) throw new Error("ログインが必要です");
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { receiveEmailNotifications },
+  });
+
+  revalidatePath("/dashboard");
+}

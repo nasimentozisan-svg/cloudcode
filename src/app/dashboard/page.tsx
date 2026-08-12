@@ -8,6 +8,7 @@ import { formatCategories } from "@/lib/categories";
 import { canAccessChannel, ensureDefaultChannels } from "@/lib/channels";
 import { EXTERNAL_APPS } from "@/lib/external-apps";
 import SizeEditForm from "@/components/SizeEditForm";
+import EmailNotificationToggle from "@/components/EmailNotificationToggle";
 
 const STATUS_LABELS: Record<string, string> = {
   ATTENDING: "出席",
@@ -84,6 +85,10 @@ export default async function DashboardPage() {
               pantsSize={user.pantsSize}
               jerseySize={user.jerseySize}
             />
+          </div>
+
+          <div className="mt-6">
+            <EmailNotificationToggle initialValue={user.receiveEmailNotifications} />
           </div>
         </div>
       </div>
