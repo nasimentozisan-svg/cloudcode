@@ -2,7 +2,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { logoutAction } from "@/lib/actions/auth";
 import { formatCategories } from "@/lib/categories";
-import { EXTERNAL_APPS } from "@/lib/external-apps";
 import type { User, UserCategory } from "@/generated/prisma/client";
 
 export default function AppShell({
@@ -50,20 +49,6 @@ export default function AppShell({
             </nav>
           </div>
           <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-sm text-gray-600">
-            <div className="flex items-center gap-2 border-r border-gray-200 pr-4">
-              {EXTERNAL_APPS.map((app) => (
-                <a
-                  key={app.name}
-                  href={app.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title={`${app.name}（${app.description}）`}
-                  className="block shrink-0 overflow-hidden rounded-full transition hover:opacity-80"
-                >
-                  <Image src={app.icon} alt={app.name} width={32} height={32} className="rounded-full" />
-                </a>
-              ))}
-            </div>
             <span className="whitespace-nowrap">
               {user.name}（{formatCategories(user.categories.map((c) => c.category))}
               {user.isAdmin ? " / 管理者" : ""}）

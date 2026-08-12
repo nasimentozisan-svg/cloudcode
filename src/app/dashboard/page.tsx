@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/current-user";
@@ -5,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import AppShell from "@/components/AppShell";
 import { formatCategories } from "@/lib/categories";
 import { canAccessChannel, ensureDefaultChannels } from "@/lib/channels";
+import { EXTERNAL_APPS } from "@/lib/external-apps";
 
 const STATUS_LABELS: Record<string, string> = {
   ATTENDING: "出席",
@@ -125,6 +127,31 @@ export default async function DashboardPage() {
             <h3 className="font-semibold text-gray-900"># {c.name}</h3>
             <p className="mt-1 text-xs text-gray-400">{c._count.messages}件のメッセージ</p>
           </Link>
+        ))}
+      </div>
+
+      <h2 className="mt-8 text-lg font-bold text-gray-900">EFKアプリ</h2>
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {EXTERNAL_APPS.map((app) => (
+          <a
+            key={app.name}
+            href={app.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 hover:bg-gray-50"
+          >
+            <Image
+              src={app.icon}
+              alt={app.name}
+              width={48}
+              height={48}
+              className="shrink-0 rounded-full"
+            />
+            <div>
+              <h3 className="font-semibold text-gray-900">{app.name}</h3>
+              <p className="text-xs text-gray-500">{app.description}</p>
+            </div>
+          </a>
         ))}
       </div>
     </AppShell>
