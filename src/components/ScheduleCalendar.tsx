@@ -99,7 +99,7 @@ export default function ScheduleCalendar({
                           key={ev.id}
                           title={ev.title}
                           className={`truncate rounded px-1 py-0.5 text-[10px] leading-tight ${primaryColor.chipBg} ${primaryColor.chipText} ${
-                            ev.needsResponse ? "ring-1 ring-red-400" : ""
+                            ev.needsResponse ? "ring-1 ring-amber-500" : ""
                           }`}
                         >
                           {ev.groups.length > 1 && (
@@ -136,7 +136,7 @@ export default function ScheduleCalendar({
           </span>
         ))}
         <span className="flex items-center gap-1">
-          <span className="text-red-400">●</span>
+          <span className="text-amber-500">●</span>
           未回答
         </span>
       </div>

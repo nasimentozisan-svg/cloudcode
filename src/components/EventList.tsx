@@ -79,7 +79,7 @@ export default function EventList({ events }: { events: EventForList[] }) {
           <div
             key={ev.id}
             className={`rounded-xl border bg-white p-5 shadow-sm ${
-              needsResponse ? "border-red-300" : "border-gray-200"
+              needsResponse ? "border-amber-300" : "border-gray-200"
             }`}
           >
             <div className="flex items-start justify-between gap-4">
@@ -90,7 +90,7 @@ export default function EventList({ events }: { events: EventForList[] }) {
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                         needsResponse
-                          ? "bg-red-100 text-red-700"
+                          ? "bg-amber-100 text-amber-700"
                           : "bg-emerald-100 text-emerald-700"
                       }`}
                     >

@@ -56,15 +56,15 @@ export const CATEGORY_GROUP_COLORS: Record<
 > = {
   TOP: { dot: "bg-blue-500", chipBg: "bg-blue-100", chipText: "text-blue-700", border: "border-blue-400" },
   SATELLITE: {
-    dot: "bg-amber-500",
-    chipBg: "bg-amber-100",
-    chipText: "text-amber-700",
-    border: "border-amber-400",
+    dot: "bg-red-500",
+    chipBg: "bg-red-100",
+    chipText: "text-red-700",
+    border: "border-red-400",
   },
   U18: {
-    dot: "bg-purple-500",
-    chipBg: "bg-purple-100",
-    chipText: "text-purple-700",
-    border: "border-purple-400",
+    dot: "bg-green-500",
+    chipBg: "bg-green-100",
+    chipText: "text-green-700",
+    border: "border-green-400",
   },
 };
