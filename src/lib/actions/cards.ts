@@ -1,25 +1,12 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import fs from "node:fs/promises";
-import path from "node:path";
+import { put, del, copy } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/require-admin";
 import { parseRosterPdf } from "@/lib/pdf-roster";
 import { findNameMatches } from "@/lib/card-matching";
-
-// Stored outside `public/` and served through /api/cards/[...path] instead
-// of Next's static file handling, which can cache a 404 for a path that
-// didn't exist yet at request time and keep serving that stale 404 even
-// after the file is written (observed with `next start`).
-const CARDS_DIR = path.join(process.cwd(), "uploads", "cards");
-const PENDING_DIR = path.join(CARDS_DIR, "pending");
-
-async function ensureDirs() {
-  await fs.mkdir(CARDS_DIR, { recursive: true });
-  await fs.mkdir(PENDING_DIR, { recursive: true });
-}
 
 export type UploadCardsState = {
   matched: number;
@@ -32,7 +19,6 @@ export async function uploadCardsAction(
   formData: FormData
 ): Promise<UploadCardsState> {
   await requireAdmin();
-  await ensureDirs();
 
   const files = formData
     .getAll("rosters")
@@ -63,11 +49,18 @@ export async function uploadCardsAction(
 
       if (matches.length === 1) {
         const userId = matches[0].id;
-        await fs.writeFile(path.join(CARDS_DIR, `${userId}.jpg`), entry.photo);
+        // Fixed pathname per user, overwritten on every re-upload (mirrors
+        // the roster-refresh workflow: latest photo always wins).
+        const blob = await put(`cards/${userId}.jpg`, entry.photo, {
+          access: "public",
+          addRandomSuffix: false,
+          allowOverwrite: true,
+          contentType: "image/jpeg",
+        });
         await prisma.user.update({
           where: { id: userId },
           data: {
-            cardImagePath: `/api/cards/${userId}.jpg`,
+            cardImagePath: blob.url,
             uniformNumber: entry.uniformNumber,
           },
         });
@@ -78,7 +71,7 @@ export async function uploadCardsAction(
           where: { name: entry.name },
         });
         if (stalePending) {
-          await fs.unlink(path.join(CARDS_DIR, stalePending.filePath)).catch(() => {});
+          await del(stalePending.filePath).catch(() => {});
           await prisma.pendingCardImage.delete({ where: { id: stalePending.id } });
         }
         matched++;
@@ -90,16 +83,22 @@ export async function uploadCardsAction(
           where: { name: entry.name },
         });
         const pendingId = existing?.id ?? randomUUID();
-        await fs.writeFile(path.join(PENDING_DIR, `${pendingId}.jpg`), entry.photo);
+        const blob = await put(`pending/${pendingId}.jpg`, entry.photo, {
+          access: "public",
+          addRandomSuffix: false,
+          allowOverwrite: true,
+          contentType: "image/jpeg",
+        });
         await prisma.pendingCardImage.upsert({
           where: { id: pendingId },
           create: {
             id: pendingId,
-            filePath: `pending/${pendingId}.jpg`,
+            filePath: blob.url,
             name: entry.name,
             uniformNumber: entry.uniformNumber,
           },
           update: {
+            filePath: blob.url,
             uniformNumber: entry.uniformNumber,
           },
         });
@@ -125,15 +124,17 @@ export async function assignPendingCardAction(pendingId: string, userId: string)
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new Error("対象のユーザーが見つかりません");
 
-  const sourcePath = path.join(CARDS_DIR, pendingImage.filePath);
-  const destPath = path.join(CARDS_DIR, `${userId}.jpg`);
-  await fs.copyFile(sourcePath, destPath);
-  await fs.unlink(sourcePath).catch(() => {});
+  const copied = await copy(pendingImage.filePath, `cards/${userId}.jpg`, {
+    access: "public",
+    addRandomSuffix: false,
+    allowOverwrite: true,
+  });
+  await del(pendingImage.filePath).catch(() => {});
 
   await prisma.user.update({
     where: { id: userId },
     data: {
-      cardImagePath: `/api/cards/${userId}.jpg`,
+      cardImagePath: copied.url,
       uniformNumber: pendingImage.uniformNumber,
     },
   });
@@ -152,8 +153,7 @@ export async function discardPendingCardAction(pendingId: string) {
   });
   if (!pendingImage) return;
 
-  const sourcePath = path.join(CARDS_DIR, pendingImage.filePath);
-  await fs.unlink(sourcePath).catch(() => {});
+  await del(pendingImage.filePath).catch(() => {});
   await prisma.pendingCardImage.delete({ where: { id: pendingId } });
 
   revalidatePath("/admin/cards");

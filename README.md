@@ -5,6 +5,8 @@
 
 ### セットアップ
 
+`.env` に接続情報を用意してください（`.env.example` 参照）。
+
 ```bash
 npm install
 npx prisma migrate deploy
@@ -13,6 +15,25 @@ npm run dev
 
 `http://localhost:3000` を開くと、まだ管理者が誰もいない場合は自動的に `/setup` に案内されます。
 そこで最初の管理者アカウント（名前・カテゴリー・メール・パスワード）を作成してください。
+
+### 本番公開（Vercel）
+
+1. Vercelで、このGitHubリポジトリを新規プロジェクトとしてインポートする
+2. プロジェクトの Storage タブから Blob ストアを作成し、このプロジェクトに接続する（`BLOB_READ_WRITE_TOKEN` が自動で設定される。選手証の写真の保存に使用）
+3. プロジェクトの Settings → Environment Variables に以下を設定する
+
+   | 変数名 | 値 |
+   |---|---|
+   | `DATABASE_URL` | Prisma PostgresなどのPostgres接続文字列 |
+   | `JWT_SECRET` | ログインセッション用の秘密鍵（ランダムな長い文字列） |
+   | `RESEND_API_KEY` | メール通知用（[resend.com](https://resend.com)で発行） |
+   | `EMAIL_FROM` | 通知メールの送信元（例: `EFK members <onboarding@resend.dev>`） |
+   | `NEXT_PUBLIC_APP_URL` | デプロイ後のURL（例: `https://xxxxx.vercel.app`）。通知メール本文のリンクに使用、未設定でも動作する |
+
+4. Deployを実行する（ビルド時に `prisma migrate deploy` が自動で走り、データベースのテーブルが作成される）
+5. デプロイ後のURLを開き、`/setup` から最初の管理者アカウントを作成する
+
+以降は、このリポジトリにpushするたびにVercelが自動で再ビルド・再デプロイする（データは保持されたまま更新される）。
 
 ### できること
 
@@ -34,8 +55,8 @@ npm run dev
 ### 技術構成
 
 - Next.js (App Router) + TypeScript + Tailwind CSS
-- Prisma + SQLite（`prisma/schema.prisma`）
+- Prisma + PostgreSQL（`prisma/schema.prisma`。Prisma Postgresなど、どのPostgresでも可）
 - 認証は自前実装（bcryptjsでパスワードハッシュ化、joseでJWTセッションcookie）
 - 選手証: pdfjs-distでJFA名簿PDFのテキスト層と埋め込み画像を直接抽出（OCR不要、名前は完全一致で誤読なし）、写真の整形はsharp
-- アップロード画像は `uploads/`（gitignore対象、`public/` の外）に保存し、`/api/cards/[...path]` から配信（キャッシュされる静的配信を避けるため）
+- アップロード画像（選手証の写真）はVercel Blobに保存（`@vercel/blob`）。ローカルディスクには保存しないため、Vercelのようなサーバーレス環境でも再デプロイでデータが消えない
 - メール通知: Resend（`RESEND_API_KEY`, `EMAIL_FROM` を `.env` に設定。本番URLへのリンクを本文に含めたい場合は `NEXT_PUBLIC_APP_URL` も設定）。送信失敗は予定作成・メッセージ投稿自体には影響しない

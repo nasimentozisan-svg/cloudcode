@@ -40,7 +40,7 @@ export default async function AdminCardsPage() {
         <PendingCardsList
           items={pendingImages.map((p) => ({
             id: p.id,
-            imageUrl: `/api/cards/${p.filePath}`,
+            imageUrl: p.filePath,
             name: p.name,
             uniformNumber: p.uniformNumber,
           }))}
