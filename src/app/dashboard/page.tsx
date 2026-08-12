@@ -1,22 +1,32 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/current-user";
+import { prisma } from "@/lib/prisma";
 import AppShell from "@/components/AppShell";
 import { formatCategories } from "@/lib/categories";
 
-const PLACEHOLDER_CARDS = [
-  {
-    title: "スケジュール・出欠",
-    description: "カテゴリーごとの練習・試合予定と出欠確認",
-  },
-  {
-    title: "メッセージ",
-    description: "トップ / サテライト / U18 / 全体チャンネル",
-  },
-];
+const STATUS_LABELS: Record<string, string> = {
+  ATTENDING: "出席",
+  ABSENT: "欠席",
+  UNDECIDED: "未定",
+};
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+
+  const userCategories = user.categories.map((c) => c.category);
+  const upcomingEvents = await prisma.event.findMany({
+    where: {
+      startAt: { gte: new Date() },
+      ...(user.isAdmin
+        ? {}
+        : { categories: { some: { category: { in: userCategories } } } }),
+    },
+    include: { responses: { where: { userId: user.id } } },
+    orderBy: { startAt: "asc" },
+    take: 3,
+  });
 
   return (
     <AppShell user={user}>
@@ -56,20 +66,52 @@ export default async function DashboardPage() {
         </div>
       </div>
 
+      <div className="mt-8 flex items-center justify-between">
+        <h2 className="text-lg font-bold text-gray-900">今後の予定</h2>
+        <Link href="/schedule" className="text-sm text-emerald-600 hover:underline">
+          すべて見る
+        </Link>
+      </div>
+      <div className="mt-4 rounded-xl border border-gray-200 bg-white p-5">
+        {upcomingEvents.length === 0 ? (
+          <p className="text-sm text-gray-500">予定はありません。</p>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {upcomingEvents.map((ev) => (
+              <li key={ev.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+                <div>
+                  <p className="font-medium text-gray-900">{ev.title}</p>
+                  <p className="text-sm text-gray-500">
+                    {ev.startAt.toLocaleString("ja-JP", {
+                      month: "numeric",
+                      day: "numeric",
+                      weekday: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                    {ev.location && ` ・ ${ev.location}`}
+                  </p>
+                </div>
+                <span className="shrink-0 rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-600">
+                  {ev.responses[0] ? STATUS_LABELS[ev.responses[0].status] : "未回答"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       <h2 className="mt-8 text-lg font-bold text-gray-900">機能一覧</h2>
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
-        {PLACEHOLDER_CARDS.map((card) => (
-          <div
-            key={card.title}
-            className="rounded-xl border border-dashed border-gray-300 bg-white p-5"
-          >
-            <h3 className="font-semibold text-gray-900">{card.title}</h3>
-            <p className="mt-1 text-sm text-gray-500">{card.description}</p>
-            <span className="mt-3 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
-              Coming soon
-            </span>
-          </div>
-        ))}
+        <div className="rounded-xl border border-dashed border-gray-300 bg-white p-5">
+          <h3 className="font-semibold text-gray-900">メッセージ</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            トップ / サテライト / U18 / 全体チャンネル
+          </p>
+          <span className="mt-3 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+            Coming soon
+          </span>
+        </div>
       </div>
     </AppShell>
   );

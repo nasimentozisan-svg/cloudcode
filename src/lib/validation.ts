@@ -26,3 +26,23 @@ export const loginSchema = z.object({
   email: z.string().trim().email("メールアドレスの形式が正しくありません"),
   password: z.string().min(1, "パスワードを入力してください"),
 });
+
+export const createEventSchema = z.object({
+  title: z.string().trim().min(1, "タイトルを入力してください").max(100),
+  startAt: z.string().min(1, "日時を入力してください"),
+  location: z
+    .string()
+    .trim()
+    .max(200)
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : undefined)),
+  notes: z
+    .string()
+    .trim()
+    .max(1000)
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : undefined)),
+  categories: z
+    .array(categoryEnum)
+    .min(1, "対象カテゴリーを1つ以上選択してください"),
+});

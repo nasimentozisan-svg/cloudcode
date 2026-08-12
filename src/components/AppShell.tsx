@@ -30,6 +30,9 @@ export default function AppShell({
               <Link href="/dashboard" className="hover:text-emerald-600">
                 ホーム
               </Link>
+              <Link href="/schedule" className="hover:text-emerald-600">
+                スケジュール
+              </Link>
               {user.isAdmin && (
                 <>
                   <Link href="/admin" className="hover:text-emerald-600">
