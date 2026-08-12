@@ -13,14 +13,16 @@ export default function UploadCardsForm() {
     <form action={formAction} className="space-y-3">
       <input
         type="file"
-        name="images"
-        accept="image/*"
+        name="rosters"
+        accept="application/pdf"
         multiple
         required
         className="block w-full text-sm text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-emerald-600 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-emerald-700"
       />
       <p className="text-xs text-gray-500">
-        複数選択できます。1枚ずつ文字を読み取って名前を照合するため、枚数が多いと時間がかかります。
+        JFAの「登録選手一覧」PDF（トップ・サテライト・U18など、カテゴリーごと）をそのままアップロードできます。
+        複数選択可。名簿に載っている名前・背番号・写真を読み取り、登録済みメンバーと自動で紐付けます。
+        選手が増えたときは、更新した名簿PDFを同じようにアップロードし直せば反映されます。
       </p>
 
       {state.error && <p className="text-sm text-red-600">{state.error}</p>}

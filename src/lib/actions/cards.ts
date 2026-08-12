@@ -3,11 +3,10 @@
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
-import sharp from "sharp";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/require-admin";
-import { extractTextFromImage } from "@/lib/ocr";
+import { parseRosterPdf } from "@/lib/pdf-roster";
 import { findNameMatches } from "@/lib/card-matching";
 
 // Stored outside `public/` and served through /api/cards/[...path] instead
@@ -20,14 +19,6 @@ const PENDING_DIR = path.join(CARDS_DIR, "pending");
 async function ensureDirs() {
   await fs.mkdir(CARDS_DIR, { recursive: true });
   await fs.mkdir(PENDING_DIR, { recursive: true });
-}
-
-async function cropCardImage(buffer: Buffer): Promise<Buffer> {
-  return sharp(buffer)
-    .rotate()
-    .resize(480, 600, { fit: "cover" })
-    .jpeg({ quality: 85 })
-    .toBuffer();
 }
 
 export type UploadCardsState = {
@@ -44,11 +35,11 @@ export async function uploadCardsAction(
   await ensureDirs();
 
   const files = formData
-    .getAll("images")
+    .getAll("rosters")
     .filter((f): f is File => f instanceof File && f.size > 0);
 
   if (files.length === 0) {
-    return { matched: 0, pending: 0, error: "画像を選択してください" };
+    return { matched: 0, pending: 0, error: "PDFファイルを選択してください" };
   }
 
   const users = await prisma.user.findMany({ select: { id: true, name: true } });
@@ -57,38 +48,63 @@ export async function uploadCardsAction(
   let pending = 0;
 
   for (const file of files) {
-    const inputBuffer = Buffer.from(await file.arrayBuffer());
+    const buffer = Buffer.from(await file.arrayBuffer());
 
-    let text = "";
+    let rosterEntries;
     try {
-      text = await extractTextFromImage(inputBuffer);
+      rosterEntries = await parseRosterPdf(buffer);
     } catch (e) {
-      console.error("OCR failed for", file.name, e);
-      text = "";
+      console.error("PDF parse failed for", file.name, e);
+      continue;
     }
 
-    const matches = findNameMatches(text, users);
-    const cropped = await cropCardImage(inputBuffer);
+    for (const entry of rosterEntries) {
+      const matches = findNameMatches(entry.name, users);
 
-    if (matches.length === 1) {
-      const userId = matches[0].id;
-      await fs.writeFile(path.join(CARDS_DIR, `${userId}.jpg`), cropped);
-      await prisma.user.update({
-        where: { id: userId },
-        data: { cardImagePath: `/api/cards/${userId}.jpg` },
-      });
-      matched++;
-    } else {
-      const pendingId = randomUUID();
-      await fs.writeFile(path.join(PENDING_DIR, `${pendingId}.jpg`), cropped);
-      await prisma.pendingCardImage.create({
-        data: {
-          id: pendingId,
-          filePath: `pending/${pendingId}.jpg`,
-          extractedText: text.trim().slice(0, 500),
-        },
-      });
-      pending++;
+      if (matches.length === 1) {
+        const userId = matches[0].id;
+        await fs.writeFile(path.join(CARDS_DIR, `${userId}.jpg`), entry.photo);
+        await prisma.user.update({
+          where: { id: userId },
+          data: {
+            cardImagePath: `/api/cards/${userId}.jpg`,
+            uniformNumber: entry.uniformNumber,
+          },
+        });
+        // A name that was unmatched in an earlier upload (before that
+        // player registered) may still have a stale pending entry; it's
+        // resolved now, so clear it out.
+        const stalePending = await prisma.pendingCardImage.findFirst({
+          where: { name: entry.name },
+        });
+        if (stalePending) {
+          await fs.unlink(path.join(CARDS_DIR, stalePending.filePath)).catch(() => {});
+          await prisma.pendingCardImage.delete({ where: { id: stalePending.id } });
+        }
+        matched++;
+      } else {
+        // Re-uploading an updated roster is the normal workflow (new
+        // players added), so upsert by name instead of piling up
+        // duplicate pending entries for the same unmatched player.
+        const existing = await prisma.pendingCardImage.findFirst({
+          where: { name: entry.name },
+        });
+        const pendingId = existing?.id ?? randomUUID();
+        await fs.writeFile(path.join(PENDING_DIR, `${pendingId}.jpg`), entry.photo);
+        await prisma.pendingCardImage.upsert({
+          where: { id: pendingId },
+          create: {
+            id: pendingId,
+            filePath: `pending/${pendingId}.jpg`,
+            name: entry.name,
+            uniformNumber: entry.uniformNumber,
+          },
+          update: {
+            uniformNumber: entry.uniformNumber,
+          },
+        });
+        pending++;
+      }
     }
   }
 
@@ -116,7 +132,10 @@ export async function assignPendingCardAction(pendingId: string, userId: string)
 
   await prisma.user.update({
     where: { id: userId },
-    data: { cardImagePath: `/api/cards/${userId}.jpg` },
+    data: {
+      cardImagePath: `/api/cards/${userId}.jpg`,
+      uniformNumber: pendingImage.uniformNumber,
+    },
   });
   await prisma.pendingCardImage.delete({ where: { id: pendingId } });
 

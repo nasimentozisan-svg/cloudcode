@@ -46,6 +46,8 @@ model UserCategory {
 model PendingCardImage {
   id            String   @id @default(cuid())
   filePath      String
-  extractedText String
+  name          String
+  uniformNumber Int?
   createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }

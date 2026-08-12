@@ -21,8 +21,8 @@ export default async function AdminCardsPage() {
     <AppShell user={user}>
       <h2 className="text-lg font-bold text-gray-900">選手証の一括登録</h2>
       <p className="mt-1 text-sm text-gray-500">
-        選手証の画像データをまとめてアップロードすると、画像に書かれた名前を読み取り、
-        登録済みのメンバーと一致すれば自動で紐付けます。名前が特定できなかったものは
+        JFAの「登録選手一覧」PDFをアップロードすると、名簿に載っている名前・背番号・写真を
+        読み取り、登録済みのメンバーと一致すれば自動で紐付けます。名前が一致しなかったものは
         下の「要確認」に表示されるので、手動で選手を選んで紐付けてください。
       </p>
       <p className="mt-1 text-sm text-gray-500">
@@ -41,7 +41,8 @@ export default async function AdminCardsPage() {
           items={pendingImages.map((p) => ({
             id: p.id,
             imageUrl: `/api/cards/${p.filePath}`,
-            extractedText: p.extractedText,
+            name: p.name,
+            uniformNumber: p.uniformNumber,
           }))}
           users={users}
         />

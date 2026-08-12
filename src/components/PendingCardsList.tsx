@@ -7,7 +7,8 @@ import { assignPendingCardAction, discardPendingCardAction } from "@/lib/actions
 type PendingItem = {
   id: string;
   imageUrl: string;
-  extractedText: string;
+  name: string;
+  uniformNumber: number | null;
 };
 
 type UserOption = {
@@ -60,8 +61,12 @@ export default function PendingCardsList({
               height={200}
               className="mx-auto rounded-md object-cover"
             />
-            <p className="mt-2 line-clamp-2 text-xs text-gray-500">
-              読み取り結果: {item.extractedText || "（文字を読み取れませんでした）"}
+            <p className="mt-2 text-xs text-gray-500">
+              名簿の記載: {item.name}
+              {item.uniformNumber != null && `（背番号${item.uniformNumber}）`}
+            </p>
+            <p className="text-xs text-gray-400">
+              登録メンバーに一致する名前が見つかりませんでした。未登録か、名前の表記が違う可能性があります。
             </p>
             <div className="mt-3 flex items-center gap-2">
               <select
