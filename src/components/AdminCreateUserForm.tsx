@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { createUserByAdminAction } from "@/lib/actions/admin";
 import type { ActionState } from "@/lib/actions/auth";
 import CategoryCheckboxGroup from "@/components/CategoryCheckboxGroup";
+import WearSizeFields from "@/components/WearSizeFields";
 import SubmitButton from "@/components/SubmitButton";
 
 const initialState: ActionState = {};
@@ -31,6 +32,11 @@ export default function AdminCreateUserForm() {
       <div className="sm:col-span-2">
         <p className="mb-1 text-sm text-gray-500">カテゴリー（複数選択可）</p>
         <CategoryCheckboxGroup />
+      </div>
+
+      <div className="sm:col-span-2">
+        <p className="mb-1 text-sm text-gray-500">ウェアサイズ（大人男性用・任意）</p>
+        <WearSizeFields compact />
       </div>
 
       <input

@@ -8,6 +8,7 @@ import {
   deleteUserAction,
 } from "@/lib/actions/admin";
 import { CATEGORY_LABELS, CATEGORY_OPTIONS, formatCategories } from "@/lib/categories";
+import { UNIFORM_SIZE_LABELS } from "@/lib/uniform-sizes";
 import type { Category, User, UserCategory } from "@/generated/prisma/client";
 
 type UserWithCategories = User & { categories: UserCategory[] };
@@ -46,6 +47,7 @@ export default function AdminUserTable({
               <th className="px-4 py-2">選手証</th>
               <th className="px-4 py-2">名前</th>
               <th className="px-4 py-2">背番号</th>
+              <th className="px-4 py-2">ウェアサイズ（シャツ/パンツ/ジャージ）</th>
               <th className="px-4 py-2">カテゴリー</th>
               <th className="px-4 py-2">メール</th>
               <th className="px-4 py-2">管理者</th>
@@ -72,6 +74,11 @@ export default function AdminUserTable({
                 <td className="px-4 py-2 font-medium text-gray-900">{u.name}</td>
                 <td className="px-4 py-2 text-gray-500">
                   {u.uniformNumber ?? "-"}
+                </td>
+                <td className="px-4 py-2 whitespace-nowrap text-gray-500">
+                  {[u.shirtSize, u.pantsSize, u.jerseySize]
+                    .map((s) => (s ? UNIFORM_SIZE_LABELS[s] : "-"))
+                    .join(" / ")}
                 </td>
                 <td className="px-4 py-2">
                   {editingId === u.id ? (

@@ -19,13 +19,17 @@ export async function registerAction(
     password: formData.get("password"),
     categories: formData.getAll("categories"),
     uniformNumber: formData.get("uniformNumber"),
+    shirtSize: formData.get("shirtSize"),
+    pantsSize: formData.get("pantsSize"),
+    jerseySize: formData.get("jerseySize"),
   });
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "入力内容を確認してください" };
   }
 
-  const { name, email, password, categories, uniformNumber } = parsed.data;
+  const { name, email, password, categories, uniformNumber, shirtSize, pantsSize, jerseySize } =
+    parsed.data;
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
@@ -40,6 +44,9 @@ export async function registerAction(
       email,
       passwordHash,
       uniformNumber: uniformNumber ?? null,
+      shirtSize: shirtSize ?? null,
+      pantsSize: pantsSize ?? null,
+      jerseySize: jerseySize ?? null,
       categories: {
         create: (categories as Category[]).map((category) => ({ category })),
       },

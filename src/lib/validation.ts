@@ -5,6 +5,13 @@ export const categoryEnum = z.enum(
   CATEGORY_OPTIONS as [string, ...string[]]
 );
 
+const uniformSizeEnum = z.enum(["S", "M", "L", "XL", "XXL"]);
+
+const uniformSizeField = z.preprocess(
+  (v) => (typeof v === "string" && v.length > 0 ? v : undefined),
+  uniformSizeEnum.optional()
+);
+
 export const registerSchema = z.object({
   name: z.string().trim().min(1, "名前を入力してください").max(50),
   email: z.string().trim().email("メールアドレスの形式が正しくありません"),
@@ -20,6 +27,15 @@ export const registerSchema = z.object({
     .refine((v) => v === undefined || (Number.isInteger(v) && v >= 0 && v <= 999), {
       message: "背番号は0〜999の数字で入力してください",
     }),
+  shirtSize: uniformSizeField,
+  pantsSize: uniformSizeField,
+  jerseySize: uniformSizeField,
+});
+
+export const updateSizesSchema = z.object({
+  shirtSize: uniformSizeField,
+  pantsSize: uniformSizeField,
+  jerseySize: uniformSizeField,
 });
 
 export const loginSchema = z.object({

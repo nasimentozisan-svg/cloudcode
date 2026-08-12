@@ -7,6 +7,7 @@ import AppShell from "@/components/AppShell";
 import { formatCategories } from "@/lib/categories";
 import { canAccessChannel, ensureDefaultChannels } from "@/lib/channels";
 import { EXTERNAL_APPS } from "@/lib/external-apps";
+import SizeEditForm from "@/components/SizeEditForm";
 
 const STATUS_LABELS: Record<string, string> = {
   ATTENDING: "出席",
@@ -73,6 +74,17 @@ export default async function DashboardPage() {
             <dt className="text-gray-500">メール</dt>
             <dd className="col-span-1 sm:col-span-3">{user.email}</dd>
           </dl>
+
+          <h3 className="mt-6 text-sm font-semibold text-gray-500">
+            ウェアサイズ（大人男性用）
+          </h3>
+          <div className="mt-2">
+            <SizeEditForm
+              shirtSize={user.shirtSize}
+              pantsSize={user.pantsSize}
+              jerseySize={user.jerseySize}
+            />
+          </div>
         </div>
       </div>
 

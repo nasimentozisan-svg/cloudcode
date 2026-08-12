@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { registerAction, type ActionState } from "@/lib/actions/auth";
 import CategoryCheckboxGroup from "@/components/CategoryCheckboxGroup";
+import WearSizeFields from "@/components/WearSizeFields";
 import SubmitButton from "@/components/SubmitButton";
 
 const initialState: ActionState = {};
@@ -45,6 +46,8 @@ export default function RegisterForm() {
           placeholder="10"
         />
       </div>
+
+      <WearSizeFields />
 
       <div>
         <label className="block text-sm font-medium text-gray-700">
