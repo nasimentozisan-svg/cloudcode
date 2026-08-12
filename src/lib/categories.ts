@@ -25,3 +25,46 @@ export function formatCategories(categories: Category[]): string {
     .map((c) => CATEGORY_LABELS[c])
     .join(" / ");
 }
+
+export type CategoryGroup = "TOP" | "SATELLITE" | "U18";
+
+export const CATEGORY_GROUPS: CategoryGroup[] = ["TOP", "SATELLITE", "U18"];
+
+export const CATEGORY_GROUP_LABELS: Record<CategoryGroup, string> = {
+  TOP: "トップ",
+  SATELLITE: "サテライト",
+  U18: "U18",
+};
+
+export function categoryGroup(category: Category): CategoryGroup {
+  if (category.startsWith("TOP")) return "TOP";
+  if (category.startsWith("SATELLITE")) return "SATELLITE";
+  return "U18";
+}
+
+export function categoryGroups(categories: Category[]): CategoryGroup[] {
+  const present = new Set(categories.map(categoryGroup));
+  return CATEGORY_GROUPS.filter((g) => present.has(g));
+}
+
+// Color coding shared by the schedule calendar and event cards, keyed by
+// category group (not the finer-grained player/coach category) so a single
+// event that targets e.g. TOP_PLAYER + TOP_COACH shows one consistent color.
+export const CATEGORY_GROUP_COLORS: Record<
+  CategoryGroup,
+  { dot: string; chipBg: string; chipText: string; border: string }
+> = {
+  TOP: { dot: "bg-blue-500", chipBg: "bg-blue-100", chipText: "text-blue-700", border: "border-blue-400" },
+  SATELLITE: {
+    dot: "bg-amber-500",
+    chipBg: "bg-amber-100",
+    chipText: "text-amber-700",
+    border: "border-amber-400",
+  },
+  U18: {
+    dot: "bg-purple-500",
+    chipBg: "bg-purple-100",
+    chipText: "text-purple-700",
+    border: "border-purple-400",
+  },
+};

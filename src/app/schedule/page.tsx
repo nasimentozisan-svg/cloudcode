@@ -3,22 +3,40 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import { canManageSchedule } from "@/lib/schedule-permissions";
+import { categoryGroups } from "@/lib/categories";
 import AppShell from "@/components/AppShell";
 import EventList, { type EventForList } from "@/components/EventList";
+import ScheduleCalendar, { type CalendarEvent } from "@/components/ScheduleCalendar";
 import type { AttendanceStatus, Category } from "@/generated/prisma/client";
 
-export default async function SchedulePage() {
+function pad(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+export default async function SchedulePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ month?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
   const userCategories = user.categories.map((c) => c.category);
   const manageAllowed = canManageSchedule(user);
 
+  const { month: monthParam } = await searchParams;
+  const now = new Date();
+  let calendarYear = now.getFullYear();
+  let calendarMonth = now.getMonth() + 1;
+  if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
+    const [y, m] = monthParam.split("-").map(Number);
+    calendarYear = y;
+    calendarMonth = m;
+  }
+
+  // すべてのカテゴリーの予定を全員が閲覧できるようにする（回答できるのは対象カテゴリーの人のみ）
   const [events, allUsers] = await Promise.all([
     prisma.event.findMany({
-      where: user.isAdmin
-        ? {}
-        : { categories: { some: { category: { in: userCategories } } } },
       include: {
         categories: true,
         responses: true,
@@ -29,7 +47,6 @@ export default async function SchedulePage() {
     prisma.user.findMany({ select: { id: true, categories: true } }),
   ]);
 
-  const now = new Date();
   const upcoming = events.filter((e) => e.startAt >= now);
   const past = events
     .filter((e) => e.startAt < now)
@@ -71,9 +88,31 @@ export default async function SchedulePage() {
       categories: eventCategories,
       myResponse,
       canDelete: currentUserIsAdmin || ev.createdById === currentUserId,
+      eligible: userCategories.some((c) => eventCategories.includes(c)),
+      isPast: ev.startAt < now,
       counts,
     };
   }
+
+  const calendarEvents: CalendarEvent[] = events
+    .filter(
+      (ev) =>
+        ev.startAt.getFullYear() === calendarYear && ev.startAt.getMonth() + 1 === calendarMonth
+    )
+    .map((ev) => {
+      const eventCategories = ev.categories.map((c) => c.category);
+      const eligible = userCategories.some((c) => eventCategories.includes(c));
+      const myResponse = ev.responses.find((r) => r.userId === currentUserId)?.status ?? null;
+      return {
+        id: ev.id,
+        title: ev.title,
+        day: ev.startAt.getDate(),
+        groups: categoryGroups(eventCategories),
+        needsResponse: eligible && ev.startAt >= now && myResponse === null,
+      };
+    });
+
+  const todayKey = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
   return (
     <AppShell user={user}>
@@ -89,7 +128,16 @@ export default async function SchedulePage() {
         )}
       </div>
 
-      <h3 className="mt-6 text-sm font-semibold text-gray-500">今後の予定</h3>
+      <div className="mt-4">
+        <ScheduleCalendar
+          year={calendarYear}
+          month={calendarMonth}
+          events={calendarEvents}
+          todayKey={todayKey}
+        />
+      </div>
+
+      <h3 className="mt-8 text-sm font-semibold text-gray-500">今後の予定</h3>
       <div className="mt-3">
         <EventList events={upcoming.map(toEventForList)} />
       </div>
