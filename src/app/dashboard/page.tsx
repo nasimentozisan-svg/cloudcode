@@ -9,6 +9,7 @@ import { canAccessChannel, ensureDefaultChannels } from "@/lib/channels";
 import { EXTERNAL_APPS } from "@/lib/external-apps";
 import SizeEditForm from "@/components/SizeEditForm";
 import EmailNotificationToggle from "@/components/EmailNotificationToggle";
+import CalendarSyncSection from "@/components/CalendarSyncSection";
 
 const STATUS_LABELS: Record<string, string> = {
   ATTENDING: "出席",
@@ -146,6 +147,15 @@ export default async function DashboardPage() {
           </Link>
         ))}
       </div>
+
+      {user.isAdmin && (
+        <>
+          <h2 className="mt-8 text-lg font-bold text-gray-900">Googleカレンダー</h2>
+          <div className="mt-4">
+            <CalendarSyncSection initialToken={user.calendarToken} />
+          </div>
+        </>
+      )}
 
       <h2 className="mt-8 text-lg font-bold text-gray-900">EFKアプリ</h2>
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
