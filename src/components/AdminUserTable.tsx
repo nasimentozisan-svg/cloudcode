@@ -9,6 +9,7 @@ import {
 } from "@/lib/actions/admin";
 import { CATEGORY_LABELS, CATEGORY_OPTIONS, formatCategories } from "@/lib/categories";
 import { UNIFORM_SIZE_LABELS } from "@/lib/uniform-sizes";
+import type { AttendanceRate } from "@/lib/attendance";
 import type { Category, User, UserCategory } from "@/generated/prisma/client";
 
 type UserWithCategories = User & { categories: UserCategory[] };
@@ -16,9 +17,11 @@ type UserWithCategories = User & { categories: UserCategory[] };
 export default function AdminUserTable({
   users,
   currentUserId,
+  attendanceRates,
 }: {
   users: UserWithCategories[];
   currentUserId: string;
+  attendanceRates: Record<string, AttendanceRate>;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -48,6 +51,7 @@ export default function AdminUserTable({
               <th className="px-4 py-2">名前</th>
               <th className="px-4 py-2">背番号</th>
               <th className="px-4 py-2">ウェアサイズ（シャツ/パンツ/ジャージ）</th>
+              <th className="px-4 py-2">出席率</th>
               <th className="px-4 py-2">カテゴリー</th>
               <th className="px-4 py-2">メール</th>
               <th className="px-4 py-2">管理者</th>
@@ -79,6 +83,11 @@ export default function AdminUserTable({
                   {[u.shirtSize, u.pantsSize, u.jerseySize]
                     .map((s) => (s ? UNIFORM_SIZE_LABELS[s] : "-"))
                     .join(" / ")}
+                </td>
+                <td className="px-4 py-2 whitespace-nowrap text-gray-500">
+                  {attendanceRates[u.id]?.rate !== null && attendanceRates[u.id] !== undefined
+                    ? `${attendanceRates[u.id].rate}%（${attendanceRates[u.id].attended}/${attendanceRates[u.id].eligible}）`
+                    : "-"}
                 </td>
                 <td className="px-4 py-2">
                   {editingId === u.id ? (

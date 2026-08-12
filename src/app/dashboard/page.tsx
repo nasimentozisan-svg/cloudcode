@@ -10,6 +10,7 @@ import { EXTERNAL_APPS } from "@/lib/external-apps";
 import SizeEditForm from "@/components/SizeEditForm";
 import EmailNotificationToggle from "@/components/EmailNotificationToggle";
 import CalendarSyncSection from "@/components/CalendarSyncSection";
+import { calculateAttendanceRate } from "@/lib/attendance";
 
 const STATUS_LABELS: Record<string, string> = {
   ATTENDING: "出席",
@@ -22,17 +23,25 @@ export default async function DashboardPage() {
   if (!user) redirect("/login");
 
   const userCategories = user.categories.map((c) => c.category);
-  const upcomingEvents = await prisma.event.findMany({
-    where: {
-      startAt: { gte: new Date() },
-      ...(user.isAdmin
-        ? {}
-        : { categories: { some: { category: { in: userCategories } } } }),
-    },
-    include: { responses: { where: { userId: user.id } } },
-    orderBy: { startAt: "asc" },
-    take: 3,
-  });
+  const now = new Date();
+  const [upcomingEvents, pastEvents] = await Promise.all([
+    prisma.event.findMany({
+      where: {
+        startAt: { gte: now },
+        ...(user.isAdmin
+          ? {}
+          : { categories: { some: { category: { in: userCategories } } } }),
+      },
+      include: { responses: { where: { userId: user.id } } },
+      orderBy: { startAt: "asc" },
+      take: 3,
+    }),
+    prisma.event.findMany({
+      where: { startAt: { lt: now } },
+      include: { categories: true, responses: true },
+    }),
+  ]);
+  const attendanceRate = calculateAttendanceRate(user.id, userCategories, pastEvents);
 
   await ensureDefaultChannels();
   const allChannels = await prisma.channel.findMany({
@@ -75,6 +84,12 @@ export default async function DashboardPage() {
             </dd>
             <dt className="text-gray-500">メール</dt>
             <dd className="col-span-1 sm:col-span-3">{user.email}</dd>
+            <dt className="text-gray-500">出席率</dt>
+            <dd className="col-span-1 sm:col-span-3">
+              {attendanceRate.rate !== null
+                ? `${attendanceRate.rate}%（${attendanceRate.attended}/${attendanceRate.eligible}）`
+                : "対象の過去の予定がありません"}
+            </dd>
           </dl>
 
           <h3 className="mt-6 text-sm font-semibold text-gray-500">
