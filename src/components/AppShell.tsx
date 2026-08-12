@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { logoutAction } from "@/lib/actions/auth";
 import { formatCategories } from "@/lib/categories";
+import { EXTERNAL_APPS } from "@/lib/external-apps";
 import type { User, UserCategory } from "@/generated/prisma/client";
 
 export default function AppShell({
@@ -14,9 +15,9 @@ export default function AppShell({
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="border-b border-gray-200 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-6">
-            <Link href="/dashboard" className="flex items-center gap-2">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-y-2 px-4 py-3">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <Link href="/dashboard" className="flex items-center gap-2 whitespace-nowrap">
               <Image
                 src="/logo.png"
                 alt="EFK members"
@@ -26,35 +27,49 @@ export default function AppShell({
               />
               <span className="font-bold text-gray-900">EFK members</span>
             </Link>
-            <nav className="flex gap-4 text-sm text-gray-600">
-              <Link href="/dashboard" className="hover:text-emerald-600">
+            <nav className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-600">
+              <Link href="/dashboard" className="whitespace-nowrap hover:text-emerald-600">
                 ホーム
               </Link>
-              <Link href="/schedule" className="hover:text-emerald-600">
+              <Link href="/schedule" className="whitespace-nowrap hover:text-emerald-600">
                 スケジュール
               </Link>
-              <Link href="/messages" className="hover:text-emerald-600">
+              <Link href="/messages" className="whitespace-nowrap hover:text-emerald-600">
                 メッセージ
               </Link>
               {user.isAdmin && (
                 <>
-                  <Link href="/admin" className="hover:text-emerald-600">
+                  <Link href="/admin" className="whitespace-nowrap hover:text-emerald-600">
                     管理者
                   </Link>
-                  <Link href="/admin/cards" className="hover:text-emerald-600">
+                  <Link href="/admin/cards" className="whitespace-nowrap hover:text-emerald-600">
                     選手証
                   </Link>
                 </>
               )}
             </nav>
           </div>
-          <div className="flex items-center gap-3 text-sm text-gray-600">
-            <span>
+          <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-sm text-gray-600">
+            <div className="flex items-center gap-2 border-r border-gray-200 pr-4">
+              {EXTERNAL_APPS.map((app) => (
+                <a
+                  key={app.name}
+                  href={app.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={`${app.name}（${app.description}）`}
+                  className="block shrink-0 overflow-hidden rounded-full transition hover:opacity-80"
+                >
+                  <Image src={app.icon} alt={app.name} width={32} height={32} className="rounded-full" />
+                </a>
+              ))}
+            </div>
+            <span className="whitespace-nowrap">
               {user.name}（{formatCategories(user.categories.map((c) => c.category))}
               {user.isAdmin ? " / 管理者" : ""}）
             </span>
             <form action={logoutAction}>
-              <button className="rounded-md border border-gray-300 px-3 py-1 text-gray-700 hover:bg-gray-100">
+              <button className="whitespace-nowrap rounded-md border border-gray-300 px-3 py-1 text-gray-700 hover:bg-gray-100">
                 ログアウト
               </button>
             </form>
