@@ -1,0 +1,21 @@
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/current-user";
+import AppShell from "@/components/AppShell";
+import CreateChannelForm from "@/components/CreateChannelForm";
+
+export default async function NewChannelPage() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  return (
+    <AppShell user={user}>
+      <h2 className="text-lg font-bold text-gray-900">チャンネルを追加</h2>
+      <p className="mt-1 text-sm text-gray-500">
+        Slackのように、目的別のチャンネルを自由に作成できます。
+      </p>
+      <div className="mt-4 max-w-xl rounded-xl border border-gray-200 bg-white p-5">
+        <CreateChannelForm />
+      </div>
+    </AppShell>
+  );
+}

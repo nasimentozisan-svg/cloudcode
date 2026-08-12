@@ -34,6 +34,8 @@ model User {
   categories          UserCategory[]
   createdEvents       Event[]
   attendanceResponses AttendanceResponse[]
+  createdChannels     Channel[]
+  messages            Message[]
 }
 
 model UserCategory {
@@ -93,4 +95,38 @@ model AttendanceResponse {
   user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([eventId, userId])
+}
+
+model Channel {
+  id          String            @id @default(cuid())
+  name        String
+  description String?
+  isDefault   Boolean           @default(false)
+  isGlobal    Boolean           @default(false)
+  createdById String?
+  createdBy   User?             @relation(fields: [createdById], references: [id])
+  categories  ChannelCategory[]
+  messages    Message[]
+  createdAt   DateTime          @default(now())
+}
+
+model ChannelCategory {
+  id        String   @id @default(cuid())
+  channelId String
+  category  Category
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, category])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  channelId String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id])
+
+  @@index([channelId, createdAt])
 }

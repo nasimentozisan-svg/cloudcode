@@ -46,3 +46,26 @@ export const createEventSchema = z.object({
     .array(categoryEnum)
     .min(1, "対象カテゴリーを1つ以上選択してください"),
 });
+
+export const createChannelSchema = z
+  .object({
+    name: z.string().trim().min(1, "チャンネル名を入力してください").max(50),
+    description: z
+      .string()
+      .trim()
+      .max(200)
+      .optional()
+      .transform((v) => (v && v.length > 0 ? v : undefined)),
+    isGlobal: z.boolean(),
+    categories: z.array(categoryEnum),
+  })
+  .refine((data) => data.isGlobal || data.categories.length > 0, {
+    message: "「全体」を選ぶか、対象カテゴリーを1つ以上選択してください",
+    path: ["categories"],
+  });
+
+export const messageBodySchema = z
+  .string()
+  .trim()
+  .min(1, "メッセージを入力してください")
+  .max(2000, "メッセージは2000文字以内で入力してください");

@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import AppShell from "@/components/AppShell";
 import { formatCategories } from "@/lib/categories";
+import { canAccessChannel, ensureDefaultChannels } from "@/lib/channels";
 
 const STATUS_LABELS: Record<string, string> = {
   ATTENDING: "出席",
@@ -27,6 +28,13 @@ export default async function DashboardPage() {
     orderBy: { startAt: "asc" },
     take: 3,
   });
+
+  await ensureDefaultChannels();
+  const allChannels = await prisma.channel.findMany({
+    include: { categories: true, _count: { select: { messages: true } } },
+    orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+  });
+  const channels = allChannels.filter((c) => canAccessChannel(user, c));
 
   return (
     <AppShell user={user}>
@@ -101,17 +109,23 @@ export default async function DashboardPage() {
         )}
       </div>
 
-      <h2 className="mt-8 text-lg font-bold text-gray-900">機能一覧</h2>
+      <div className="mt-8 flex items-center justify-between">
+        <h2 className="text-lg font-bold text-gray-900">メッセージ</h2>
+        <Link href="/messages" className="text-sm text-emerald-600 hover:underline">
+          すべて見る
+        </Link>
+      </div>
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-dashed border-gray-300 bg-white p-5">
-          <h3 className="font-semibold text-gray-900">メッセージ</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            トップ / サテライト / U18 / 全体チャンネル
-          </p>
-          <span className="mt-3 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
-            Coming soon
-          </span>
-        </div>
+        {channels.map((c) => (
+          <Link
+            key={c.id}
+            href={`/messages/${c.id}`}
+            className="rounded-xl border border-gray-200 bg-white p-5 hover:bg-gray-50"
+          >
+            <h3 className="font-semibold text-gray-900"># {c.name}</h3>
+            <p className="mt-1 text-xs text-gray-400">{c._count.messages}件のメッセージ</p>
+          </Link>
+        ))}
       </div>
     </AppShell>
   );
