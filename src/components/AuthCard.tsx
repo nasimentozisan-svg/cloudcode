@@ -13,7 +13,7 @@ export default function AuthCard({
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-10">
       <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
         <div className="flex justify-center">
-          <Image src="/logo.png" alt="EFK menbers" width={72} height={72} priority />
+          <Image src="/logo.png" alt="EFK members" width={72} height={72} priority />
         </div>
         <h1 className="mt-4 text-center text-xl font-bold text-gray-900">{title}</h1>
         {subtitle && (

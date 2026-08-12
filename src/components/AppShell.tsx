@@ -19,12 +19,12 @@ export default function AppShell({
             <Link href="/dashboard" className="flex items-center gap-2">
               <Image
                 src="/logo.png"
-                alt="EFK menbers"
-                width={32}
-                height={32}
+                alt="EFK members"
+                width={40}
+                height={40}
                 className="rounded-full"
               />
-              <span className="font-bold text-gray-900">EFK menbers</span>
+              <span className="font-bold text-gray-900">EFK members</span>
             </Link>
             <nav className="flex gap-4 text-sm text-gray-600">
               <Link href="/dashboard" className="hover:text-emerald-600">

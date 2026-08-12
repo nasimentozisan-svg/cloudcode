@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "EFK menbers",
+  title: "EFK members",
   description: "スケジュール・出欠・メッセージを一元管理",
 };
 
