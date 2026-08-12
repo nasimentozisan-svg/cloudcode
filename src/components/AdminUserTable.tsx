@@ -43,6 +43,7 @@ export default function AdminUserTable({
         <table className="min-w-full divide-y divide-gray-200 text-sm">
           <thead className="bg-gray-50 text-left text-gray-500">
             <tr>
+              <th className="px-4 py-2">選手証</th>
               <th className="px-4 py-2">名前</th>
               <th className="px-4 py-2">背番号</th>
               <th className="px-4 py-2">カテゴリー</th>
@@ -54,6 +55,20 @@ export default function AdminUserTable({
           <tbody className="divide-y divide-gray-100">
             {users.map((u) => (
               <tr key={u.id}>
+                <td className="px-4 py-2">
+                  {u.cardImagePath ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={u.cardImagePath}
+                      alt={`${u.name}の選手証`}
+                      width={32}
+                      height={40}
+                      className="rounded object-cover"
+                    />
+                  ) : (
+                    <span className="text-xs text-gray-300">-</span>
+                  )}
+                </td>
                 <td className="px-4 py-2 font-medium text-gray-900">{u.name}</td>
                 <td className="px-4 py-2 text-gray-500">
                   {u.uniformNumber ?? "-"}

@@ -1,7 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  serverExternalPackages: ["tesseract.js"],
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "80mb",
+    },
+  },
 };
 
 export default nextConfig;

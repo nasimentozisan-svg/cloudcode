@@ -31,9 +31,14 @@ export default function AppShell({
                 ホーム
               </Link>
               {user.isAdmin && (
-                <Link href="/admin" className="hover:text-emerald-600">
-                  管理者
-                </Link>
+                <>
+                  <Link href="/admin" className="hover:text-emerald-600">
+                    管理者
+                  </Link>
+                  <Link href="/admin/cards" className="hover:text-emerald-600">
+                    選手証
+                  </Link>
+                </>
               )}
             </nav>
           </div>

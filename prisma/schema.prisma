@@ -27,6 +27,7 @@ model User {
   passwordHash  String
   name          String
   uniformNumber Int?
+  cardImagePath String?
   isAdmin       Boolean        @default(false)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
@@ -40,4 +41,11 @@ model UserCategory {
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, category])
+}
+
+model PendingCardImage {
+  id            String   @id @default(cuid())
+  filePath      String
+  extractedText String
+  createdAt     DateTime @default(now())
 }

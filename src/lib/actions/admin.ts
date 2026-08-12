@@ -3,18 +3,10 @@
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/current-user";
+import { requireAdmin } from "@/lib/require-admin";
 import { registerSchema, categoryEnum } from "@/lib/validation";
 import type { Category } from "@/generated/prisma/client";
 import type { ActionState } from "@/lib/actions/auth";
-
-async function requireAdmin() {
-  const user = await getCurrentUser();
-  if (!user || !user.isAdmin) {
-    throw new Error("管理者権限が必要です");
-  }
-  return user;
-}
 
 export async function createUserByAdminAction(
   _prev: ActionState,

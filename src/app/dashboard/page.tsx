@@ -12,10 +12,6 @@ const PLACEHOLDER_CARDS = [
     title: "メッセージ",
     description: "トップ / サテライト / U18 / 全体チャンネル",
   },
-  {
-    title: "選手証",
-    description: "選手証画像の自動紐付け",
-  },
 ];
 
 export default async function DashboardPage() {
@@ -24,22 +20,40 @@ export default async function DashboardPage() {
 
   return (
     <AppShell user={user}>
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-bold text-gray-900">マイプロフィール</h2>
-        <dl className="mt-4 grid grid-cols-2 gap-y-2 text-sm sm:grid-cols-4">
-          <dt className="text-gray-500">名前</dt>
-          <dd className="col-span-1 sm:col-span-3">{user.name}</dd>
-          <dt className="text-gray-500">カテゴリー</dt>
-          <dd className="col-span-1 sm:col-span-3">
-            {formatCategories(user.categories.map((c) => c.category))}
-          </dd>
-          <dt className="text-gray-500">背番号</dt>
-          <dd className="col-span-1 sm:col-span-3">
-            {user.uniformNumber ?? "未設定"}
-          </dd>
-          <dt className="text-gray-500">メール</dt>
-          <dd className="col-span-1 sm:col-span-3">{user.email}</dd>
-        </dl>
+      <div className="flex flex-col gap-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm sm:flex-row">
+        {user.cardImagePath ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={user.cardImagePath}
+            alt="選手証"
+            width={160}
+            height={200}
+            className="mx-auto rounded-md object-cover sm:mx-0"
+          />
+        ) : (
+          <div className="mx-auto flex h-[200px] w-[160px] shrink-0 items-center justify-center rounded-md border border-dashed border-gray-300 text-center text-xs text-gray-400 sm:mx-0">
+            選手証
+            <br />
+            未アップロード
+          </div>
+        )}
+        <div className="flex-1">
+          <h2 className="text-lg font-bold text-gray-900">マイプロフィール</h2>
+          <dl className="mt-4 grid grid-cols-2 gap-y-2 text-sm sm:grid-cols-4">
+            <dt className="text-gray-500">名前</dt>
+            <dd className="col-span-1 sm:col-span-3">{user.name}</dd>
+            <dt className="text-gray-500">カテゴリー</dt>
+            <dd className="col-span-1 sm:col-span-3">
+              {formatCategories(user.categories.map((c) => c.category))}
+            </dd>
+            <dt className="text-gray-500">背番号</dt>
+            <dd className="col-span-1 sm:col-span-3">
+              {user.uniformNumber ?? "未設定"}
+            </dd>
+            <dt className="text-gray-500">メール</dt>
+            <dd className="col-span-1 sm:col-span-3">{user.email}</dd>
+          </dl>
+        </div>
       </div>
 
       <h2 className="mt-8 text-lg font-bold text-gray-900">機能一覧</h2>

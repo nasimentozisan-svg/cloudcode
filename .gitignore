@@ -52,3 +52,6 @@ next-env.d.ts
 /.claude
 /.windsurf
 /skills-lock.json
+
+# uploaded player card images (runtime data)
+/uploads
