@@ -20,7 +20,9 @@ export function calculateAttendanceRate(
   pastEvents: EventForRate[]
 ): AttendanceRate {
   const eligibleEvents = pastEvents.filter((ev) =>
-    ev.categories.some((c) => userCategories.includes(c.category))
+    ev.categories.some(
+      (c) => c.category !== "GUARDIAN" && userCategories.includes(c.category)
+    )
   );
   const attended = eligibleEvents.filter((ev) =>
     ev.responses.some((r) => r.userId === userId && r.status === "ATTENDING")

@@ -19,6 +19,7 @@ enum Category {
   SATELLITE_COACH
   U18_PLAYER
   U18_COACH
+  GUARDIAN
 }
 
 enum UniformSize {

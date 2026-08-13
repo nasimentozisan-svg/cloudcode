@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
-import { canManageSchedule } from "@/lib/schedule-permissions";
+import { canManageSchedule, canRespondToEvent } from "@/lib/schedule-permissions";
 import { categoryGroups } from "@/lib/categories";
 import AppShell from "@/components/AppShell";
 import EventList, { type EventForList } from "@/components/EventList";
@@ -60,7 +60,9 @@ export default async function SchedulePage({
     const eventCategories: Category[] = ev.categories.map((c) => c.category);
     const eligibleUserIds = new Set(
       allUsers
-        .filter((u) => u.categories.some((c) => eventCategories.includes(c.category)))
+        .filter((u) =>
+          canRespondToEvent(u.categories.map((c) => c.category), eventCategories)
+        )
         .map((u) => u.id)
     );
     const counts = { attending: 0, absent: 0, undecided: 0, noResponse: 0 };
@@ -88,7 +90,7 @@ export default async function SchedulePage({
       categories: eventCategories,
       myResponse,
       canDelete: currentUserIsAdmin || ev.createdById === currentUserId,
-      eligible: userCategories.some((c) => eventCategories.includes(c)),
+      eligible: canRespondToEvent(userCategories, eventCategories),
       isPast: ev.startAt < now,
       counts,
     };
@@ -101,7 +103,7 @@ export default async function SchedulePage({
     )
     .map((ev) => {
       const eventCategories = ev.categories.map((c) => c.category);
-      const eligible = userCategories.some((c) => eventCategories.includes(c));
+      const eligible = canRespondToEvent(userCategories, eventCategories);
       const myResponse = ev.responses.find((r) => r.userId === currentUserId)?.status ?? null;
       return {
         id: ev.id,

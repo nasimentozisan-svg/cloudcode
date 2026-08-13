@@ -7,6 +7,7 @@ export const CATEGORY_LABELS: Record<Category, string> = {
   SATELLITE_COACH: "サテライトコーチ",
   U18_PLAYER: "U18(U15)選手",
   U18_COACH: "U18コーチ",
+  GUARDIAN: "保護者",
 };
 
 export const CATEGORY_OPTIONS = Object.keys(CATEGORY_LABELS) as Category[];
@@ -26,19 +27,21 @@ export function formatCategories(categories: Category[]): string {
     .join(" / ");
 }
 
-export type CategoryGroup = "TOP" | "SATELLITE" | "U18";
+export type CategoryGroup = "TOP" | "SATELLITE" | "U18" | "GUARDIAN";
 
-export const CATEGORY_GROUPS: CategoryGroup[] = ["TOP", "SATELLITE", "U18"];
+export const CATEGORY_GROUPS: CategoryGroup[] = ["TOP", "SATELLITE", "U18", "GUARDIAN"];
 
 export const CATEGORY_GROUP_LABELS: Record<CategoryGroup, string> = {
   TOP: "トップ",
   SATELLITE: "サテライト",
   U18: "U18",
+  GUARDIAN: "保護者",
 };
 
 export function categoryGroup(category: Category): CategoryGroup {
   if (category.startsWith("TOP")) return "TOP";
   if (category.startsWith("SATELLITE")) return "SATELLITE";
+  if (category === "GUARDIAN") return "GUARDIAN";
   return "U18";
 }
 
@@ -66,5 +69,11 @@ export const CATEGORY_GROUP_COLORS: Record<
     chipBg: "bg-green-100",
     chipText: "text-green-700",
     border: "border-green-400",
+  },
+  GUARDIAN: {
+    dot: "bg-purple-500",
+    chipBg: "bg-purple-100",
+    chipText: "text-purple-700",
+    border: "border-purple-400",
   },
 };
