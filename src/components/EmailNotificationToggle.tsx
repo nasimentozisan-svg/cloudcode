@@ -28,7 +28,7 @@ export default function EmailNotificationToggle({
           });
         }}
       />
-      新しい予定・メッセージをメールで通知する
+      新しい予定・自分宛のメンションをメールで通知する
     </label>
   );
 }

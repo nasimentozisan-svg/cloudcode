@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/current-user";
 import { canAccessChannel } from "@/lib/channels";
 import { createChannelSchema, messageBodySchema } from "@/lib/validation";
 import { sendNotificationEmails, escapeHtml } from "@/lib/email";
+import { findMentions } from "@/lib/mentions";
 import type { Category } from "@/generated/prisma/client";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
@@ -80,18 +81,34 @@ export async function postMessageAction(channelId: string, body: string) {
     data: { channelId, authorId: user.id, body: parsed.data },
   });
 
+  // Only @mentioned people are emailed (or everyone, for @全員) — a plain
+  // message with no mention sends no email, so casual chat doesn't spam
+  // inboxes. See src/lib/mentions.ts.
   const allUsers = await prisma.user.findMany({
-    where: { id: { not: user.id }, receiveEmailNotifications: true },
-    select: { id: true, email: true, isAdmin: true, categories: { select: { category: true } } },
+    where: { id: { not: user.id } },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      isAdmin: true,
+      receiveEmailNotifications: true,
+      categories: { select: { category: true } },
+    },
   });
-  const recipients = allUsers.filter((u) => canAccessChannel(u, channel));
-  await sendNotificationEmails(
-    recipients,
-    `【EFK members】# ${channel.name} に新着メッセージ`,
-    `<p><strong>${escapeHtml(user.name)}</strong> さんが # ${escapeHtml(channel.name)} に投稿しました。</p>
-    <p style="white-space:pre-wrap">${escapeHtml(parsed.data)}</p>
-    ${APP_URL ? `<p><a href="${APP_URL}/messages/${channelId}">チャンネルを開く</a></p>` : ""}`
+  const channelMembers = allUsers.filter((u) => canAccessChannel(u, channel));
+  const { userIds: mentionedIds, all: mentionsAll } = findMentions(parsed.data, channelMembers);
+  const recipients = channelMembers.filter(
+    (u) => u.receiveEmailNotifications && (mentionsAll || mentionedIds.includes(u.id))
   );
+  if (recipients.length > 0) {
+    await sendNotificationEmails(
+      recipients,
+      `【EFK members】# ${channel.name} でメンションされました`,
+      `<p><strong>${escapeHtml(user.name)}</strong> さんが # ${escapeHtml(channel.name)} であなたにメンションしました。</p>
+      <p style="white-space:pre-wrap">${escapeHtml(parsed.data)}</p>
+      ${APP_URL ? `<p><a href="${APP_URL}/messages/${channelId}">チャンネルを開く</a></p>` : ""}`
+    );
+  }
 
   const count = await prisma.message.count({ where: { channelId } });
   if (count > MAX_MESSAGES_PER_CHANNEL) {

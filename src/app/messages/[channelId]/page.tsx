@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { canAccessChannel, ensureDefaultChannels } from "@/lib/channels";
 import AppShell from "@/components/AppShell";
 import MessageComposer from "@/components/MessageComposer";
+import MessageBody from "@/components/MessageBody";
 import PollRefresh from "@/components/PollRefresh";
 import ChannelDeleteButton from "@/components/ChannelDeleteButton";
 
@@ -26,13 +27,21 @@ export default async function ChannelPage({
   if (!channel) notFound();
   if (!canAccessChannel(user, channel)) redirect("/messages");
 
-  const recent = await prisma.message.findMany({
-    where: { channelId },
-    include: { author: { select: { name: true } } },
-    orderBy: { createdAt: "desc" },
-    take: 200,
-  });
+  const [recent, allUsers] = await Promise.all([
+    prisma.message.findMany({
+      where: { channelId },
+      include: { author: { select: { name: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    }),
+    prisma.user.findMany({
+      select: { id: true, name: true, isAdmin: true, categories: { select: { category: true } } },
+    }),
+  ]);
   const messages = recent.reverse();
+  const members = allUsers
+    .filter((u) => canAccessChannel(u, channel))
+    .map((u) => ({ id: u.id, name: u.name }));
 
   return (
     <AppShell user={user}>
@@ -66,12 +75,12 @@ export default async function ChannelPage({
                   minute: "2-digit",
                 })}
               </p>
-              <p className="whitespace-pre-wrap text-sm text-gray-800">{m.body}</p>
+              <MessageBody body={m.body} members={members} />
             </div>
           ))}
         </div>
         <div className="border-t border-gray-200 p-3">
-          <MessageComposer channelId={channel.id} />
+          <MessageComposer channelId={channel.id} members={members} />
         </div>
       </div>
     </AppShell>
