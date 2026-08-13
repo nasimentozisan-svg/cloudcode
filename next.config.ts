@@ -6,12 +6,11 @@ const nextConfig: NextConfig = {
   // The DOMMatrix polyfill it needs is installed in src/instrumentation.ts,
   // which runs before Turbopack's external-module loading.
   serverExternalPackages: ["pdfjs-dist", "sharp"],
-  // pdfjs-dist loads pdf.worker.mjs via a dynamically-computed path, so
-  // Vercel's build-time file tracer doesn't detect it as a dependency and
-  // leaves it out of the deployed function bundle ("Cannot find module
-  // .../pdfjs-dist/legacy/build/pdf.worker.mjs" at runtime). Force it in.
+  // Belt-and-suspenders alongside the static import in pdf-roster.ts: make
+  // sure our own copy of the worker file (src/lib/pdf-worker/pdf.worker.mjs)
+  // is traced into the deployed function too.
   outputFileTracingIncludes: {
-    "/admin/cards": ["./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"],
+    "/admin/cards": ["./src/lib/pdf-worker/pdf.worker.mjs"],
   },
   experimental: {
     serverActions: {

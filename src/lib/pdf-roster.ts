@@ -1,6 +1,25 @@
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import type { TextItem } from "pdfjs-dist/types/src/display/api";
 import sharp from "sharp";
+
+// On Vercel, pdfjs-dist's own pdf.worker.mjs (loaded via a runtime-computed
+// path inside its own package folder) doesn't make it into the deployed
+// function ("Cannot find module .../pdf.worker.mjs"), because the reference
+// is dynamic and Vercel's build-time file tracer can't follow it. A local
+// copy (src/lib/pdf-worker/pdf.worker.mjs, kept in outputFileTracingIncludes
+// in next.config.ts) sidesteps that — pointed to here as raw workerSrc
+// rather than statically imported, since importing it lets Turbopack try to
+// bundle its internals and risks altering its runtime behavior.
+//
+// fileURLToPath() is given import.meta.url directly (a string) rather than
+// a `new URL(...)` instance: constructing our own URL object here throws
+// "must be of type string or an instance of URL. Received an instance of
+// URL" under Turbopack, because the bundled `url` module's URL class isn't
+// the same identity as the one instanceof-checked internally.
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+pdfjsLib.GlobalWorkerOptions.workerSrc = path.join(currentDir, "pdf-worker", "pdf.worker.mjs");
 
 export type RosterEntry = {
   name: string;
