@@ -39,12 +39,12 @@ export default async function SchedulePage({
     prisma.event.findMany({
       include: {
         categories: true,
-        responses: true,
+        responses: { include: { user: { select: { name: true } } } },
         createdBy: { select: { name: true } },
       },
       orderBy: { startAt: "asc" },
     }),
-    prisma.user.findMany({ select: { id: true, categories: true } }),
+    prisma.user.findMany({ select: { id: true, name: true, categories: true } }),
   ]);
 
   const upcoming = events.filter((e) => e.startAt >= now);
@@ -58,23 +58,33 @@ export default async function SchedulePage({
 
   function toEventForList(ev: (typeof events)[number]): EventForList {
     const eventCategories: Category[] = ev.categories.map((c) => c.category);
-    const eligibleUserIds = new Set(
-      allUsers
-        .filter((u) =>
-          canRespondToEvent(u.categories.map((c) => c.category), eventCategories)
-        )
-        .map((u) => u.id)
+    const eligibleUsers = allUsers.filter((u) =>
+      canRespondToEvent(u.categories.map((c) => c.category), eventCategories)
     );
     const counts = { attending: 0, absent: 0, undecided: 0, noResponse: 0 };
+    const attendingNames: string[] = [];
+    const absentNames: string[] = [];
+    const undecidedNames: string[] = [];
     const respondedIds = new Set<string>();
     for (const r of ev.responses) {
       respondedIds.add(r.userId);
-      if (r.status === "ATTENDING") counts.attending++;
-      else if (r.status === "ABSENT") counts.absent++;
-      else counts.undecided++;
+      if (r.status === "ATTENDING") {
+        counts.attending++;
+        attendingNames.push(r.user.name);
+      } else if (r.status === "ABSENT") {
+        counts.absent++;
+        absentNames.push(r.user.name);
+      } else {
+        counts.undecided++;
+        undecidedNames.push(r.user.name);
+      }
     }
-    for (const uid of eligibleUserIds) {
-      if (!respondedIds.has(uid)) counts.noResponse++;
+    const noResponseNames: string[] = [];
+    for (const u of eligibleUsers) {
+      if (!respondedIds.has(u.id)) {
+        counts.noResponse++;
+        noResponseNames.push(u.name);
+      }
     }
 
     const myResponse: AttendanceStatus | null =
@@ -93,6 +103,10 @@ export default async function SchedulePage({
       eligible: canRespondToEvent(userCategories, eventCategories),
       isPast: ev.startAt < now,
       counts,
+      attendingNames,
+      absentNames,
+      undecidedNames,
+      noResponseNames,
     };
   }
 

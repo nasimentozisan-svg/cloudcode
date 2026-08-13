@@ -24,6 +24,10 @@ export type EventForList = {
     undecided: number;
     noResponse: number;
   };
+  attendingNames: string[];
+  absentNames: string[];
+  undecidedNames: string[];
+  noResponseNames: string[];
 };
 
 const STATUS_LABELS: Record<AttendanceStatus, string> = {
@@ -53,6 +57,16 @@ export default function EventList({ events }: { events: EventForList[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  function toggleExpanded(id: string) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   function run(action: () => Promise<void>) {
     setError(null);
@@ -163,13 +177,42 @@ export default function EventList({ events }: { events: EventForList[] }) {
               </div>
             )}
 
-            <p className="mt-3 text-xs text-gray-400">
+            <button
+              type="button"
+              onClick={() => toggleExpanded(ev.id)}
+              className="mt-3 text-xs text-gray-400 hover:text-gray-600 hover:underline"
+            >
               出席 {ev.counts.attending} / 欠席 {ev.counts.absent} / 未定 {ev.counts.undecided} / 未回答{" "}
               {ev.counts.noResponse}　（作成: {ev.createdByName}）
-            </p>
+              {expandedIds.has(ev.id) ? " ▲閉じる" : " ▼内訳を見る"}
+            </button>
+
+            {expandedIds.has(ev.id) && (
+              <div className="mt-2 grid grid-cols-1 gap-3 rounded-md bg-gray-50 p-3 text-xs text-gray-600 sm:grid-cols-2">
+                <NameList label="出席" names={ev.attendingNames} />
+                <NameList label="欠席" names={ev.absentNames} />
+                <NameList label="未定" names={ev.undecidedNames} />
+                <NameList label="未回答" names={ev.noResponseNames} />
+              </div>
+            )}
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function NameList({ label, names }: { label: string; names: string[] }) {
+  return (
+    <div>
+      <p className="font-medium text-gray-700">
+        {label}（{names.length}人）
+      </p>
+      {names.length === 0 ? (
+        <p className="mt-0.5 text-gray-400">-</p>
+      ) : (
+        <p className="mt-0.5">{names.join("、")}</p>
+      )}
     </div>
   );
 }
