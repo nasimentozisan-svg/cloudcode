@@ -6,6 +6,7 @@ import { canAccessChannel, ensureDefaultChannels } from "@/lib/channels";
 import AppShell from "@/components/AppShell";
 import MessageComposer from "@/components/MessageComposer";
 import PollRefresh from "@/components/PollRefresh";
+import ChannelDeleteButton from "@/components/ChannelDeleteButton";
 
 export default async function ChannelPage({
   params,
@@ -39,7 +40,12 @@ export default async function ChannelPage({
       <Link href="/messages" className="text-xs text-emerald-600 hover:underline">
         ← チャンネル一覧
       </Link>
-      <h2 className="mt-1 text-lg font-bold text-gray-900"># {channel.name}</h2>
+      <div className="mt-1 flex items-center justify-between">
+        <h2 className="text-lg font-bold text-gray-900"># {channel.name}</h2>
+        {!channel.isDefault && (user.isAdmin || channel.createdById === user.id) && (
+          <ChannelDeleteButton channelId={channel.id} channelName={channel.name} />
+        )}
+      </div>
       {channel.description && (
         <p className="text-sm text-gray-500">{channel.description}</p>
       )}

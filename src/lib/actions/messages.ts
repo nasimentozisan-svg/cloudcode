@@ -37,6 +37,11 @@ export async function createChannelAction(
 
   const { name, description, isGlobal, categories } = parsed.data;
 
+  const existing = await prisma.channel.findUnique({ where: { name } });
+  if (existing) {
+    return { error: "そのチャンネル名は既に使われています" };
+  }
+
   const channel = await prisma.channel.create({
     data: {
       name,

@@ -9,16 +9,15 @@ const DEFAULT_CHANNELS: { name: string; categories: Category[]; isGlobal?: boole
 ];
 
 export async function ensureDefaultChannels() {
-  const existing = await prisma.channel.findMany({
-    where: { isDefault: true },
-    select: { name: true },
-  });
-  const existingNames = new Set(existing.map((c) => c.name));
-
+  // This runs on every page load across several pages, so concurrent
+  // requests are expected (e.g. two tabs open right after a fresh deploy).
+  // upsert-by-name relies on Channel.name being unique to insert
+  // atomically instead of a check-then-create that can race and duplicate.
   for (const def of DEFAULT_CHANNELS) {
-    if (existingNames.has(def.name)) continue;
-    await prisma.channel.create({
-      data: {
+    await prisma.channel.upsert({
+      where: { name: def.name },
+      update: {},
+      create: {
         name: def.name,
         isDefault: true,
         isGlobal: !!def.isGlobal,

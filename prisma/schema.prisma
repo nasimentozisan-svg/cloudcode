@@ -112,7 +112,7 @@ model AttendanceResponse {
 
 model Channel {
   id          String            @id @default(cuid())
-  name        String
+  name        String            @unique
   description String?
   isDefault   Boolean           @default(false)
   isGlobal    Boolean           @default(false)
