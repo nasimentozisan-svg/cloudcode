@@ -41,6 +41,7 @@ export default async function SchedulePage({
         categories: true,
         responses: { include: { user: { select: { name: true } } } },
         createdBy: { select: { name: true } },
+        matchResult: { select: { id: true } },
       },
       orderBy: { startAt: "asc" },
     }),
@@ -102,6 +103,7 @@ export default async function SchedulePage({
       canDelete: currentUserIsAdmin || ev.createdById === currentUserId,
       eligible: canRespondToEvent(userCategories, eventCategories),
       isPast: ev.startAt < now,
+      hasMatchResult: ev.matchResult !== null,
       counts,
       attendingNames,
       absentNames,
@@ -163,14 +165,14 @@ export default async function SchedulePage({
 
       <h3 className="mt-8 text-sm font-semibold text-gray-500">今後の予定</h3>
       <div className="mt-3">
-        <EventList events={upcoming.map(toEventForList)} />
+        <EventList events={upcoming.map(toEventForList)} manageAllowed={manageAllowed} />
       </div>
 
       {past.length > 0 && (
         <>
           <h3 className="mt-10 text-sm font-semibold text-gray-500">過去の予定</h3>
           <div className="mt-3">
-            <EventList events={past.map(toEventForList)} />
+            <EventList events={past.map(toEventForList)} manageAllowed={manageAllowed} />
           </div>
         </>
       )}

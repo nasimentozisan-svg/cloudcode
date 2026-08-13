@@ -80,6 +80,21 @@ export const createChannelSchema = z
     path: ["categories"],
   });
 
+export const matchResultSchema = z.object({
+  opponent: z.string().trim().min(1, "対戦相手を入力してください").max(100),
+  ourScore: z.coerce.number().int().min(0).max(99),
+  opponentScore: z.coerce.number().int().min(0).max(99),
+  scorers: z
+    .array(
+      z.object({
+        number: z.coerce.number().int().min(0).max(999).optional(),
+        name: z.string().trim().min(1).max(50),
+        goals: z.coerce.number().int().min(1).max(99),
+      })
+    )
+    .max(50),
+});
+
 export const messageBodySchema = z
   .string()
   .trim()

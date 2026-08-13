@@ -86,6 +86,7 @@ model Event {
   createdBy   User                 @relation(fields: [createdById], references: [id])
   categories  EventCategory[]
   responses   AttendanceResponse[]
+  matchResult MatchResult?
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
 }
@@ -109,6 +110,29 @@ model AttendanceResponse {
   user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([eventId, userId])
+}
+
+model MatchResult {
+  id            String        @id @default(cuid())
+  eventId       String        @unique
+  event         Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  opponent      String
+  ourScore      Int
+  opponentScore Int
+  recordedById  String
+  scorers       MatchScorer[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model MatchScorer {
+  id            String      @id @default(cuid())
+  matchResultId String
+  matchResult   MatchResult @relation(fields: [matchResultId], references: [id], onDelete: Cascade)
+  number        Int?
+  name          String
+  goals         Int         @default(1)
+  order         Int         @default(0)
 }
 
 model Channel {

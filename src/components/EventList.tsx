@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { respondToEventAction, deleteEventAction } from "@/lib/actions/schedule";
 import { CATEGORY_LABELS, CATEGORY_GROUP_COLORS, categoryGroups } from "@/lib/categories";
 import type { AttendanceStatus, Category } from "@/generated/prisma/client";
@@ -18,6 +19,7 @@ export type EventForList = {
   canDelete: boolean;
   eligible: boolean;
   isPast: boolean;
+  hasMatchResult: boolean;
   counts: {
     attending: number;
     absent: number;
@@ -53,7 +55,13 @@ function formatDateTime(iso: string) {
   });
 }
 
-export default function EventList({ events }: { events: EventForList[] }) {
+export default function EventList({
+  events,
+  manageAllowed = false,
+}: {
+  events: EventForList[];
+  manageAllowed?: boolean;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -139,22 +147,32 @@ export default function EventList({ events }: { events: EventForList[] }) {
                   </p>
                 )}
               </div>
-              {ev.canDelete && (
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={() =>
-                    run(async () => {
-                      if (confirm(`「${ev.title}」を削除しますか？`)) {
-                        await deleteEventAction(ev.id);
-                      }
-                    })
-                  }
-                  className="shrink-0 text-xs text-red-600 hover:underline disabled:opacity-40"
-                >
-                  削除
-                </button>
-              )}
+              <div className="flex shrink-0 flex-col items-end gap-2">
+                {manageAllowed && ev.isPast && (
+                  <Link
+                    href={`/schedule/${ev.id}/result`}
+                    className="text-xs text-emerald-700 hover:underline"
+                  >
+                    {ev.hasMatchResult ? "試合結果を編集" : "試合結果を入力"}
+                  </Link>
+                )}
+                {ev.canDelete && (
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={() =>
+                      run(async () => {
+                        if (confirm(`「${ev.title}」を削除しますか？`)) {
+                          await deleteEventAction(ev.id);
+                        }
+                      })
+                    }
+                    className="text-xs text-red-600 hover:underline disabled:opacity-40"
+                  >
+                    削除
+                  </button>
+                )}
+              </div>
             </div>
 
             {ev.eligible && (
