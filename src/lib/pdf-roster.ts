@@ -52,6 +52,11 @@ export async function parseRosterPdf(buffer: Buffer): Promise<RosterEntry[]> {
     // anchors above.
     const photoNames = imageNames.slice(1);
 
+    // First pass: cheap, synchronous-ish text grouping to work out each
+    // player's name/jersey number/photo reference. Kept sequential since
+    // it's fast and each iteration depends on the previous anchor's end
+    // index.
+    const playerMetas: { name: string; jerseyNumber: number; photoName: string }[] = [];
     let prevEnd = -1;
     for (let a = 0; a < anchorIndexes.length; a++) {
       const anchorIdx = anchorIndexes[a];
@@ -84,27 +89,39 @@ export async function parseRosterPdf(buffer: Buffer): Promise<RosterEntry[]> {
       const photoName = photoNames[a];
       if (!photoName) continue;
 
-      const imgObj = await new Promise<{
-        width: number;
-        height: number;
-        data: Uint8ClampedArray;
-      } | null>((resolve) => page.objs.get(photoName, resolve));
-      if (!imgObj?.data) continue;
-
-      const channels = Math.round(imgObj.data.length / (imgObj.width * imgObj.height));
-      const photo = await sharp(Buffer.from(imgObj.data), {
-        raw: { width: imgObj.width, height: imgObj.height, channels: channels as 1 | 2 | 3 | 4 },
-      })
-        .resize(240, 300, { fit: "cover" })
-        .jpeg({ quality: 88 })
-        .toBuffer();
-
-      entries.push({
-        name,
-        uniformNumber: Number.isFinite(jerseyNumber) ? jerseyNumber : null,
-        photo,
-      });
+      playerMetas.push({ name, jerseyNumber, photoName });
     }
+
+    // Second pass: the actual slow work (pulling the raw embedded image out
+    // of the PDF and re-encoding it with sharp). Independent per player, so
+    // run them concurrently instead of one at a time - with a couple dozen
+    // players this is the difference between single-digit seconds and
+    // running into Vercel's function time limit.
+    const pageEntries = await Promise.all(
+      playerMetas.map(async (meta): Promise<RosterEntry | null> => {
+        const imgObj = await new Promise<{
+          width: number;
+          height: number;
+          data: Uint8ClampedArray;
+        } | null>((resolve) => page.objs.get(meta.photoName, resolve));
+        if (!imgObj?.data) return null;
+
+        const channels = Math.round(imgObj.data.length / (imgObj.width * imgObj.height));
+        const photo = await sharp(Buffer.from(imgObj.data), {
+          raw: { width: imgObj.width, height: imgObj.height, channels: channels as 1 | 2 | 3 | 4 },
+        })
+          .resize(240, 300, { fit: "cover" })
+          .jpeg({ quality: 88 })
+          .toBuffer();
+
+        return {
+          name: meta.name,
+          uniformNumber: Number.isFinite(meta.jerseyNumber) ? meta.jerseyNumber : null,
+          photo,
+        };
+      })
+    );
+    entries.push(...pageEntries.filter((e): e is RosterEntry => e !== null));
   }
 
   return entries;
