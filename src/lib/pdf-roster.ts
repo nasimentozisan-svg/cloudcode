@@ -1,19 +1,6 @@
-import type * as PdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import type { TextItem } from "pdfjs-dist/types/src/display/api";
 import sharp from "sharp";
-
-// pdfjs-dist's legacy build references the browser's DOMMatrix at module
-// load time (for its internal transform utilities), which doesn't exist in
-// Node.js. A static top-level import would evaluate pdfjs-dist before this
-// file gets a chance to polyfill it, so the import is deferred and the
-// polyfill installed first.
-async function loadPdfjs(): Promise<typeof PdfjsLib> {
-  if (typeof (globalThis as { DOMMatrix?: unknown }).DOMMatrix === "undefined") {
-    const { default: CSSMatrix } = await import("dommatrix");
-    (globalThis as { DOMMatrix?: unknown }).DOMMatrix = CSSMatrix;
-  }
-  return import("pdfjs-dist/legacy/build/pdf.mjs");
-}
 
 export type RosterEntry = {
   name: string;
@@ -32,7 +19,6 @@ const KATAKANA_ONLY = /^[゠-ヿー\s]+$/;
 // absent, so rows are grouped by y-position rather than assumed to be a
 // fixed item count.
 export async function parseRosterPdf(buffer: Buffer): Promise<RosterEntry[]> {
-  const pdfjsLib = await loadPdfjs();
   const data = new Uint8Array(buffer);
   const doc = await pdfjsLib.getDocument({ data, useSystemFonts: true }).promise;
   const entries: RosterEntry[] = [];
