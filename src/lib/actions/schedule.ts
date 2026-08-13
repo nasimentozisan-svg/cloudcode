@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/current-user";
 import { canManageSchedule } from "@/lib/schedule-permissions";
-import { createEventSchema } from "@/lib/validation";
+import { createEventSchema, categoryEnum } from "@/lib/validation";
 import { sendNotificationEmails, escapeHtml } from "@/lib/email";
 import { CATEGORY_LABELS } from "@/lib/categories";
 import type { AttendanceStatus, Category } from "@/generated/prisma/client";
@@ -82,6 +82,92 @@ export async function createEventAction(
   revalidatePath("/schedule");
   revalidatePath("/dashboard");
   redirect("/schedule");
+}
+
+export type BulkEventInput = { title: string; startAt: string; location: string | null };
+
+// Used by the free text-paste bulk import (see src/lib/schedule-import.ts):
+// events are already parsed client-side, this just validates and persists
+// them, sending one consolidated notification email instead of one per
+// event so importing a season's schedule doesn't spam everyone's inbox.
+export async function bulkCreateEventsAction(
+  events: BulkEventInput[],
+  categories: string[]
+): Promise<{ error?: string; created?: number }> {
+  const user = await getCurrentUser();
+  if (!user || !canManageSchedule(user)) {
+    return { error: "予定を作成する権限がありません" };
+  }
+
+  const parsedCategories = categoryEnum.array().min(1).safeParse(categories);
+  if (!parsedCategories.success) {
+    return { error: "対象カテゴリーを1つ以上選択してください" };
+  }
+  if (!Array.isArray(events) || events.length === 0) {
+    return { error: "登録する予定がありません" };
+  }
+  if (events.length > 100) {
+    return { error: "一度に登録できるのは100件までです" };
+  }
+
+  const validEvents: { title: string; startAt: Date; location: string | null }[] = [];
+  for (const e of events) {
+    const startAtDate = new Date(e.startAt);
+    const title = e.title?.trim() ?? "";
+    if (title.length === 0 || title.length > 100 || Number.isNaN(startAtDate.getTime())) {
+      return { error: "入力内容に誤りがあります。プレビューを確認してください" };
+    }
+    validEvents.push({ title, startAt: startAtDate, location: e.location?.trim() || null });
+  }
+
+  const eventCategories = parsedCategories.data as Category[];
+
+  await prisma.$transaction(
+    validEvents.map((e) =>
+      prisma.event.create({
+        data: {
+          title: e.title,
+          startAt: e.startAt,
+          location: e.location,
+          createdById: user.id,
+          categories: { create: eventCategories.map((category) => ({ category })) },
+        },
+      })
+    )
+  );
+
+  const recipients = await prisma.user.findMany({
+    where: {
+      id: { not: user.id },
+      receiveEmailNotifications: true,
+      categories: { some: { category: { in: eventCategories } } },
+    },
+    select: { email: true },
+  });
+  const listHtml = validEvents
+    .map((e) => {
+      const dateLabel = e.startAt.toLocaleString("ja-JP", {
+        month: "numeric",
+        day: "numeric",
+        weekday: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      return `<li>${escapeHtml(e.title)} - ${dateLabel}${e.location ? ` ・ ${escapeHtml(e.location)}` : ""}</li>`;
+    })
+    .join("");
+  await sendNotificationEmails(
+    recipients,
+    `【EFK members】新しい予定が${validEvents.length}件登録されました`,
+    `<p>新しい予定が${validEvents.length}件登録されました。</p>
+    <ul>${listHtml}</ul>
+    <p>対象: ${eventCategories.map((c) => CATEGORY_LABELS[c]).join(" / ")}</p>
+    ${APP_URL ? `<p><a href="${APP_URL}/schedule">スケジュールを確認する</a></p>` : ""}`
+  );
+
+  revalidatePath("/schedule");
+  revalidatePath("/dashboard");
+  return { created: validEvents.length };
 }
 
 export async function respondToEventAction(eventId: string, status: string) {
