@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { subscribePushAction, unsubscribePushAction } from "@/lib/actions/push";
 
-type Status = "checking" | "unsupported" | "off" | "on";
+type Status = "checking" | "unsupported" | "register-error" | "off" | "on";
 
 function urlBase64ToUint8Array(base64String: string): BufferSource {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -30,7 +30,10 @@ export default function PushNotificationToggle({ vapidPublicKey }: { vapidPublic
         const sub = await reg.pushManager.getSubscription();
         setStatus(sub ? "on" : "off");
       })
-      .catch(() => setStatus("unsupported"));
+      .catch((e) => {
+        setStatus("register-error");
+        setError(e instanceof Error ? `${e.name}: ${e.message}` : String(e));
+      });
   }, [vapidPublicKey]);
 
   function enable() {
@@ -83,6 +86,13 @@ export default function PushNotificationToggle({ vapidPublicKey }: { vapidPublic
 
   if (status === "unsupported") {
     return <p className="text-xs text-gray-400">この端末・ブラウザはプッシュ通知に対応していません</p>;
+  }
+  if (status === "register-error") {
+    return (
+      <p className="text-xs text-red-600">
+        プッシュ通知の準備でエラーが発生しました: {error}
+      </p>
+    );
   }
   if (status === "checking") return null;
 
