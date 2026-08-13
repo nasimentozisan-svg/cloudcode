@@ -5,7 +5,11 @@ import { saveMatchResultAction } from "@/lib/actions/match-result";
 import { buildInstagramPost } from "@/lib/match-post";
 import type { Category } from "@/generated/prisma/client";
 
-type ScorerRow = { number: string; name: string; goals: string };
+const OTHER_PLAYER_ID = "__other__";
+
+type Player = { id: string; name: string; uniformNumber: number | null };
+
+type ScorerRow = { playerId: string; number: string; name: string; goals: string };
 
 type Initial = {
   opponent: string;
@@ -14,12 +18,30 @@ type Initial = {
   scorers: { number: number | null; name: string; goals: number }[];
 } | null;
 
-function toRows(scorers: { number: number | null; name: string; goals: number }[]): ScorerRow[] {
-  return scorers.map((s) => ({
-    number: s.number !== null ? String(s.number) : "",
-    name: s.name,
-    goals: String(s.goals),
-  }));
+// Titles created by the app follow "対〇〇" (see CreateEventForm / import
+// examples), so the opponent can usually be pre-filled instead of retyped.
+function guessOpponent(eventTitle: string): string {
+  const match = eventTitle.match(/^対(.+)/);
+  return match ? match[1].trim() : "";
+}
+
+function emptyRow(): ScorerRow {
+  return { playerId: "", number: "", name: "", goals: "1" };
+}
+
+function toRows(
+  scorers: { number: number | null; name: string; goals: number }[],
+  players: Player[]
+): ScorerRow[] {
+  return scorers.map((s) => {
+    const matched = players.find((p) => p.name === s.name);
+    return {
+      playerId: matched ? matched.id : OTHER_PLAYER_ID,
+      number: s.number !== null ? String(s.number) : "",
+      name: s.name,
+      goals: String(s.goals),
+    };
+  });
 }
 
 export default function MatchResultForm({
@@ -27,31 +49,47 @@ export default function MatchResultForm({
   eventTitle,
   eventCategories,
   startAt,
+  players,
   initial,
 }: {
   eventId: string;
   eventTitle: string;
   eventCategories: Category[];
   startAt: string;
+  players: Player[];
   initial: Initial;
 }) {
-  const [opponent, setOpponent] = useState(initial?.opponent ?? "");
+  const [opponent, setOpponent] = useState(initial?.opponent ?? guessOpponent(eventTitle));
   const [ourScore, setOurScore] = useState(initial ? String(initial.ourScore) : "");
   const [opponentScore, setOpponentScore] = useState(initial ? String(initial.opponentScore) : "");
   const [scorers, setScorers] = useState<ScorerRow[]>(
-    initial && initial.scorers.length > 0 ? toRows(initial.scorers) : [{ number: "", name: "", goals: "1" }]
+    initial && initial.scorers.length > 0 ? toRows(initial.scorers, players) : [emptyRow()]
   );
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [postText, setPostText] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  function updateScorer(index: number, field: keyof ScorerRow, value: string) {
-    setScorers((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
+  function updateScorer(index: number, patch: Partial<ScorerRow>) {
+    setScorers((prev) => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)));
+  }
+
+  function handlePlayerSelect(index: number, playerId: string) {
+    if (playerId === OTHER_PLAYER_ID) {
+      updateScorer(index, { playerId, name: "", number: "" });
+      return;
+    }
+    const player = players.find((p) => p.id === playerId);
+    if (!player) return;
+    updateScorer(index, {
+      playerId,
+      name: player.name,
+      number: player.uniformNumber !== null ? String(player.uniformNumber) : "",
+    });
   }
 
   function addScorer() {
-    setScorers((prev) => [...prev, { number: "", name: "", goals: "1" }]);
+    setScorers((prev) => [...prev, emptyRow()]);
   }
 
   function removeScorer(index: number) {
@@ -168,23 +206,43 @@ export default function MatchResultForm({
         <div className="mt-1 space-y-2">
           {scorers.map((s, i) => (
             <div key={i} className="flex items-center gap-2">
-              <input
-                value={s.number}
-                onChange={(e) => updateScorer(i, "number", e.target.value)}
-                placeholder="背番号"
-                className="w-20 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-              />
-              <input
-                value={s.name}
-                onChange={(e) => updateScorer(i, "name", e.target.value)}
-                placeholder="名前"
+              <select
+                value={s.playerId}
+                onChange={(e) => handlePlayerSelect(i, e.target.value)}
                 className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-              />
+              >
+                <option value="" disabled>
+                  選手を選ぶ
+                </option>
+                {players.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.uniformNumber !== null ? `No.${p.uniformNumber} ` : ""}
+                    {p.name}
+                  </option>
+                ))}
+                <option value={OTHER_PLAYER_ID}>その他（手入力）</option>
+              </select>
+              {s.playerId === OTHER_PLAYER_ID && (
+                <>
+                  <input
+                    value={s.number}
+                    onChange={(e) => updateScorer(i, { number: e.target.value })}
+                    placeholder="背番号"
+                    className="w-20 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                  />
+                  <input
+                    value={s.name}
+                    onChange={(e) => updateScorer(i, { name: e.target.value })}
+                    placeholder="名前"
+                    className="w-28 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                  />
+                </>
+              )}
               <input
                 type="number"
                 min={1}
                 value={s.goals}
-                onChange={(e) => updateScorer(i, "goals", e.target.value)}
+                onChange={(e) => updateScorer(i, { goals: e.target.value })}
                 placeholder="得点数"
                 className="w-16 rounded-md border border-gray-300 px-2 py-1.5 text-sm"
               />
