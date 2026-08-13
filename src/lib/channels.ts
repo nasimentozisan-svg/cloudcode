@@ -9,6 +9,13 @@ const DEFAULT_CHANNELS: { name: string; categories: Category[]; isGlobal?: boole
 ];
 
 export async function ensureDefaultChannels() {
+  // This runs on every page load across several pages - including every
+  // poll on the messages page (every few seconds while a channel is open)
+  // - so the common case (defaults already exist) needs to be cheap: one
+  // count query instead of 4 upsert writes on every single request.
+  const existingCount = await prisma.channel.count({ where: { isDefault: true } });
+  if (existingCount >= DEFAULT_CHANNELS.length) return;
+
   // This runs on every page load across several pages, so concurrent
   // requests are expected (e.g. two tabs open right after a fresh deploy).
   // upsert-by-name relies on Channel.name being unique to insert

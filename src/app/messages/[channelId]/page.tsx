@@ -36,7 +36,7 @@ export default async function ChannelPage({
 
   return (
     <AppShell user={user}>
-      <PollRefresh intervalMs={4000} />
+      <PollRefresh intervalMs={8000} />
       <Link href="/messages" className="text-xs text-emerald-600 hover:underline">
         ← チャンネル一覧
       </Link>
