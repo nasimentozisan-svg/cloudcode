@@ -32,6 +32,69 @@ export async function uploadCardsAction(
 
   let matched = 0;
   let pending = 0;
+  let failed = 0;
+
+  async function processEntry(entry: Awaited<ReturnType<typeof parseRosterPdf>>[number]) {
+    const matches = findNameMatches(entry.name, users);
+
+    if (matches.length === 1) {
+      const userId = matches[0].id;
+      // Fixed pathname per user, overwritten on every re-upload (mirrors
+      // the roster-refresh workflow: latest photo always wins).
+      const blob = await put(`cards/${userId}.jpg`, entry.photo, {
+        access: "public",
+        addRandomSuffix: false,
+        allowOverwrite: true,
+        contentType: "image/jpeg",
+      });
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          cardImagePath: blob.url,
+          uniformNumber: entry.uniformNumber,
+        },
+      });
+      // A name that was unmatched in an earlier upload (before that
+      // player registered) may still have a stale pending entry; it's
+      // resolved now, so clear it out.
+      const stalePending = await prisma.pendingCardImage.findFirst({
+        where: { name: entry.name },
+      });
+      if (stalePending) {
+        await del(stalePending.filePath).catch(() => {});
+        await prisma.pendingCardImage.delete({ where: { id: stalePending.id } });
+      }
+      matched++;
+    } else {
+      // Re-uploading an updated roster is the normal workflow (new
+      // players added), so upsert by name instead of piling up
+      // duplicate pending entries for the same unmatched player.
+      const existing = await prisma.pendingCardImage.findFirst({
+        where: { name: entry.name },
+      });
+      const pendingId = existing?.id ?? randomUUID();
+      const blob = await put(`pending/${pendingId}.jpg`, entry.photo, {
+        access: "public",
+        addRandomSuffix: false,
+        allowOverwrite: true,
+        contentType: "image/jpeg",
+      });
+      await prisma.pendingCardImage.upsert({
+        where: { id: pendingId },
+        create: {
+          id: pendingId,
+          filePath: blob.url,
+          name: entry.name,
+          uniformNumber: entry.uniformNumber,
+        },
+        update: {
+          filePath: blob.url,
+          uniformNumber: entry.uniformNumber,
+        },
+      });
+      pending++;
+    }
+  }
 
   for (const file of files) {
     const buffer = Buffer.from(await file.arrayBuffer());
@@ -44,65 +107,15 @@ export async function uploadCardsAction(
       continue;
     }
 
-    for (const entry of rosterEntries) {
-      const matches = findNameMatches(entry.name, users);
-
-      if (matches.length === 1) {
-        const userId = matches[0].id;
-        // Fixed pathname per user, overwritten on every re-upload (mirrors
-        // the roster-refresh workflow: latest photo always wins).
-        const blob = await put(`cards/${userId}.jpg`, entry.photo, {
-          access: "public",
-          addRandomSuffix: false,
-          allowOverwrite: true,
-          contentType: "image/jpeg",
-        });
-        await prisma.user.update({
-          where: { id: userId },
-          data: {
-            cardImagePath: blob.url,
-            uniformNumber: entry.uniformNumber,
-          },
-        });
-        // A name that was unmatched in an earlier upload (before that
-        // player registered) may still have a stale pending entry; it's
-        // resolved now, so clear it out.
-        const stalePending = await prisma.pendingCardImage.findFirst({
-          where: { name: entry.name },
-        });
-        if (stalePending) {
-          await del(stalePending.filePath).catch(() => {});
-          await prisma.pendingCardImage.delete({ where: { id: stalePending.id } });
-        }
-        matched++;
-      } else {
-        // Re-uploading an updated roster is the normal workflow (new
-        // players added), so upsert by name instead of piling up
-        // duplicate pending entries for the same unmatched player.
-        const existing = await prisma.pendingCardImage.findFirst({
-          where: { name: entry.name },
-        });
-        const pendingId = existing?.id ?? randomUUID();
-        const blob = await put(`pending/${pendingId}.jpg`, entry.photo, {
-          access: "public",
-          addRandomSuffix: false,
-          allowOverwrite: true,
-          contentType: "image/jpeg",
-        });
-        await prisma.pendingCardImage.upsert({
-          where: { id: pendingId },
-          create: {
-            id: pendingId,
-            filePath: blob.url,
-            name: entry.name,
-            uniformNumber: entry.uniformNumber,
-          },
-          update: {
-            filePath: blob.url,
-            uniformNumber: entry.uniformNumber,
-          },
-        });
-        pending++;
+    // Each entry needs a Blob upload plus DB writes; running them in
+    // parallel (rather than one player at a time) keeps a large roster well
+    // under the function's time limit. A failure on one player's Blob/DB
+    // write no longer aborts the rest of the batch.
+    const results = await Promise.allSettled(rosterEntries.map(processEntry));
+    for (const result of results) {
+      if (result.status === "rejected") {
+        console.error("Roster entry failed for", file.name, result.reason);
+        failed++;
       }
     }
   }
@@ -110,7 +123,11 @@ export async function uploadCardsAction(
   revalidatePath("/admin/cards");
   revalidatePath("/admin");
   revalidatePath("/dashboard");
-  return { matched, pending };
+  return {
+    matched,
+    pending,
+    error: failed > 0 ? `${failed}件の選手の処理に失敗しました。もう一度アップロードしてみてください` : undefined,
+  };
 }
 
 export async function assignPendingCardAction(pendingId: string, userId: string) {

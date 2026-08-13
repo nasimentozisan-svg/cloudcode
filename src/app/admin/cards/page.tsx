@@ -5,6 +5,11 @@ import AppShell from "@/components/AppShell";
 import UploadCardsForm from "@/components/UploadCardsForm";
 import PendingCardsList from "@/components/PendingCardsList";
 
+// Uploading a roster PDF processes every player's photo (Blob upload + DB
+// write) in one request; raise the function's time limit as far as the
+// Vercel plan allows so a full roster doesn't hit the default timeout.
+export const maxDuration = 60;
+
 export default async function AdminCardsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
