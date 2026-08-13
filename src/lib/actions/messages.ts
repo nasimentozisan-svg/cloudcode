@@ -6,7 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/current-user";
 import { canAccessChannel } from "@/lib/channels";
 import { createChannelSchema, messageBodySchema } from "@/lib/validation";
-import { sendNotificationEmails, escapeHtml } from "@/lib/email";
+import { escapeHtml } from "@/lib/email";
+import { notifyRecipients } from "@/lib/notify";
 import { findMentions } from "@/lib/mentions";
 import type { Category } from "@/generated/prisma/client";
 
@@ -81,9 +82,9 @@ export async function postMessageAction(channelId: string, body: string) {
     data: { channelId, authorId: user.id, body: parsed.data },
   });
 
-  // Only @mentioned people are emailed (or everyone, for @全員) — a plain
-  // message with no mention sends no email, so casual chat doesn't spam
-  // inboxes. See src/lib/mentions.ts.
+  // Only @mentioned people are notified (or everyone, for @全員) — a plain
+  // message with no mention sends nothing, so casual chat doesn't spam
+  // everyone's email/push/LINE. See src/lib/mentions.ts.
   const allUsers = await prisma.user.findMany({
     where: { id: { not: user.id } },
     select: {
@@ -97,16 +98,18 @@ export async function postMessageAction(channelId: string, body: string) {
   });
   const channelMembers = allUsers.filter((u) => canAccessChannel(u, channel));
   const { userIds: mentionedIds, all: mentionsAll } = findMentions(parsed.data, channelMembers);
-  const recipients = channelMembers.filter(
-    (u) => u.receiveEmailNotifications && (mentionsAll || mentionedIds.includes(u.id))
-  );
+  const recipients = channelMembers.filter((u) => mentionsAll || mentionedIds.includes(u.id));
   if (recipients.length > 0) {
-    await sendNotificationEmails(
+    await notifyRecipients(
       recipients,
-      `【EFK members】# ${channel.name} でメンションされました`,
-      `<p><strong>${escapeHtml(user.name)}</strong> さんが # ${escapeHtml(channel.name)} であなたにメンションしました。</p>
-      <p style="white-space:pre-wrap">${escapeHtml(parsed.data)}</p>
-      ${APP_URL ? `<p><a href="${APP_URL}/messages/${channelId}">チャンネルを開く</a></p>` : ""}`
+      {
+        subject: `【EFK members】# ${channel.name} でメンションされました`,
+        html: `<p><strong>${escapeHtml(user.name)}</strong> さんが # ${escapeHtml(channel.name)} であなたにメンションしました。</p>
+        <p style="white-space:pre-wrap">${escapeHtml(parsed.data)}</p>
+        ${APP_URL ? `<p><a href="${APP_URL}/messages/${channelId}">チャンネルを開く</a></p>` : ""}`,
+      },
+      { title: `# ${channel.name}`, body: `${user.name}: ${parsed.data}`, url: `/messages/${channelId}` },
+      `【EFK members】# ${channel.name}\n${user.name}さんがメンションしました\n${parsed.data}`
     );
   }
 

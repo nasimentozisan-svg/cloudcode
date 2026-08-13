@@ -22,7 +22,7 @@ export default function MessageComposer({
   const candidates = mention
     ? [{ id: "__all__", name: MENTION_ALL }, ...members]
         .filter((m) => m.name.includes(mention.query))
-        .slice(0, 8)
+        .slice(0, mention.query.length > 0 ? 8 : 30)
     : [];
 
   function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
@@ -48,6 +48,17 @@ export default function MessageComposer({
     });
   }
 
+  // Lets people tap straight to a name without typing "@" first - handy on
+  // mobile where switching to the symbol keyboard is its own hassle.
+  function openMentionMenu() {
+    if (mention) {
+      setMention(null);
+      return;
+    }
+    const caret = textareaRef.current?.selectionStart ?? body.length;
+    setMention({ query: "", start: caret });
+  }
+
   function handleSubmit() {
     if (body.trim().length === 0) return;
     setError(null);
@@ -66,11 +77,11 @@ export default function MessageComposer({
   return (
     <div>
       <p className="mb-1 text-xs text-gray-400">
-        「@」で相手を指定するとメールで通知されます（「@{MENTION_ALL}」でチャンネル全員に通知。何も指定しなければメール通知なし）
+        「@」ボタンまたは入力欄で「@」を押して相手を指定すると通知が届きます（「@{MENTION_ALL}」で全員に通知。何も指定しなければ通知なし）
       </p>
       <div className="relative flex items-end gap-2">
         {mention && candidates.length > 0 && (
-          <div className="absolute bottom-full left-0 mb-1 w-56 rounded-md border border-gray-200 bg-white py-1 shadow-lg">
+          <div className="absolute bottom-full left-0 mb-1 max-h-56 w-56 overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg">
             {candidates.map((c) => (
               <button
                 key={c.id}
@@ -83,6 +94,18 @@ export default function MessageComposer({
             ))}
           </div>
         )}
+        <button
+          type="button"
+          onClick={openMentionMenu}
+          className={`shrink-0 rounded-md border px-3 py-2 text-sm font-medium ${
+            mention
+              ? "border-emerald-600 bg-emerald-50 text-emerald-700"
+              : "border-gray-300 text-gray-600 hover:bg-gray-50"
+          }`}
+          aria-label="メンションを挿入"
+        >
+          @
+        </button>
         <textarea
           ref={textareaRef}
           value={body}

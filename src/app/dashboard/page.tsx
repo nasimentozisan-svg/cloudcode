@@ -9,6 +9,8 @@ import { canAccessChannel, ensureDefaultChannels } from "@/lib/channels";
 import { EXTERNAL_APPS } from "@/lib/external-apps";
 import SizeEditForm from "@/components/SizeEditForm";
 import EmailNotificationToggle from "@/components/EmailNotificationToggle";
+import PushNotificationToggle from "@/components/PushNotificationToggle";
+import LineLinkSection from "@/components/LineLinkSection";
 import CalendarSyncSection from "@/components/CalendarSyncSection";
 import { calculateAttendanceRate } from "@/lib/attendance";
 
@@ -104,8 +106,20 @@ export default async function DashboardPage() {
             />
           </div>
 
-          <div className="mt-6">
+          <h3 className="mt-6 text-sm font-semibold text-gray-500">通知</h3>
+          <div className="mt-2 space-y-3">
             <EmailNotificationToggle initialValue={user.receiveEmailNotifications} />
+            <PushNotificationToggle vapidPublicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null} />
+            <div>
+              <p className="text-sm text-gray-700">LINE通知</p>
+              <div className="mt-1">
+                <LineLinkSection
+                  linked={user.lineUserId !== null}
+                  initialCode={user.lineLinkCode}
+                  lineAddFriendUrl={process.env.NEXT_PUBLIC_LINE_ADD_FRIEND_URL ?? null}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>
