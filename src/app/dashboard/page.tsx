@@ -14,6 +14,7 @@ import { calculateAttendanceRate } from "@/lib/attendance";
 
 const STATUS_LABELS: Record<string, string> = {
   ATTENDING: "出席",
+  MATCH_ONLY: "試合のみ",
   ABSENT: "欠席",
   UNDECIDED: "未定",
 };

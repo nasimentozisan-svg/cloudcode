@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { respondToEventAction, deleteEventAction } from "@/lib/actions/schedule";
+import { respondToEventAction, deleteEventAction, updateEventNotesAction } from "@/lib/actions/schedule";
 import { CATEGORY_LABELS, CATEGORY_GROUP_COLORS, categoryGroups } from "@/lib/categories";
 import type { AttendanceStatus, Category } from "@/generated/prisma/client";
 
@@ -22,24 +22,30 @@ export type EventForList = {
   hasMatchResult: boolean;
   counts: {
     attending: number;
+    matchOnly: number;
     absent: number;
     undecided: number;
     noResponse: number;
   };
   attendingNames: string[];
+  matchOnlyNames: string[];
   absentNames: string[];
   undecidedNames: string[];
   noResponseNames: string[];
 };
 
+const RESPONSE_STATUSES: AttendanceStatus[] = ["ATTENDING", "MATCH_ONLY", "ABSENT", "UNDECIDED"];
+
 const STATUS_LABELS: Record<AttendanceStatus, string> = {
   ATTENDING: "出席",
+  MATCH_ONLY: "試合のみ",
   ABSENT: "欠席",
   UNDECIDED: "未定",
 };
 
 const STATUS_STYLES: Record<AttendanceStatus, string> = {
   ATTENDING: "bg-emerald-600 text-white",
+  MATCH_ONLY: "bg-sky-600 text-white",
   ABSENT: "bg-red-600 text-white",
   UNDECIDED: "bg-gray-400 text-white",
 };
@@ -66,6 +72,8 @@ export default function EventList({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
+  const [notesDraft, setNotesDraft] = useState("");
 
   function toggleExpanded(id: string) {
     setExpandedIds((prev) => {
@@ -85,6 +93,24 @@ export default function EventList({
       } catch (e) {
         setError(e instanceof Error ? e.message : "操作に失敗しました");
       }
+    });
+  }
+
+  function startEditingNotes(ev: EventForList) {
+    setEditingNotesId(ev.id);
+    setNotesDraft(ev.notes ?? "");
+  }
+
+  function saveNotes(eventId: string) {
+    setError(null);
+    startTransition(async () => {
+      const result = await updateEventNotesAction(eventId, notesDraft);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      setEditingNotesId(null);
+      router.refresh();
     });
   }
 
@@ -138,8 +164,48 @@ export default function EventList({
                     );
                   })}
                 </div>
-                {ev.notes && (
-                  <p className="mt-2 whitespace-pre-wrap text-sm text-gray-600">{ev.notes}</p>
+                {editingNotesId === ev.id ? (
+                  <div className="mt-2">
+                    <textarea
+                      value={notesDraft}
+                      onChange={(e) => setNotesDraft(e.target.value)}
+                      rows={3}
+                      placeholder="持ち物・メモなど"
+                      className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+                    />
+                    <div className="mt-1 flex gap-2">
+                      <button
+                        type="button"
+                        disabled={isPending}
+                        onClick={() => saveNotes(ev.id)}
+                        className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                      >
+                        保存
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingNotesId(null)}
+                        className="rounded-md border border-gray-300 px-3 py-1 text-xs text-gray-600 hover:bg-gray-50"
+                      >
+                        キャンセル
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {ev.notes && (
+                      <p className="mt-2 whitespace-pre-wrap text-sm text-gray-600">{ev.notes}</p>
+                    )}
+                    {manageAllowed && (
+                      <button
+                        type="button"
+                        onClick={() => startEditingNotes(ev)}
+                        className="mt-1 text-xs text-emerald-700 hover:underline"
+                      >
+                        {ev.notes ? "備考を編集" : "＋ 備考を追加"}
+                      </button>
+                    )}
+                  </>
                 )}
                 {!ev.eligible && (
                   <p className="mt-2 text-xs text-gray-400">
@@ -177,7 +243,7 @@ export default function EventList({
 
             {ev.eligible && (
               <div className="mt-4 flex flex-wrap items-center gap-2">
-                {(["ATTENDING", "ABSENT", "UNDECIDED"] as AttendanceStatus[]).map((status) => (
+                {RESPONSE_STATUSES.map((status) => (
                   <button
                     key={status}
                     type="button"
@@ -200,14 +266,15 @@ export default function EventList({
               onClick={() => toggleExpanded(ev.id)}
               className="mt-3 text-xs text-gray-400 hover:text-gray-600 hover:underline"
             >
-              出席 {ev.counts.attending} / 欠席 {ev.counts.absent} / 未定 {ev.counts.undecided} / 未回答{" "}
-              {ev.counts.noResponse}　（作成: {ev.createdByName}）
+              出席 {ev.counts.attending} / 試合のみ {ev.counts.matchOnly} / 欠席 {ev.counts.absent} /
+              未定 {ev.counts.undecided} / 未回答 {ev.counts.noResponse}　（作成: {ev.createdByName}）
               {expandedIds.has(ev.id) ? " ▲閉じる" : " ▼内訳を見る"}
             </button>
 
             {expandedIds.has(ev.id) && (
               <div className="mt-2 grid grid-cols-1 gap-3 rounded-md bg-gray-50 p-3 text-xs text-gray-600 sm:grid-cols-2">
                 <NameList label="出席" names={ev.attendingNames} />
+                <NameList label="試合のみ" names={ev.matchOnlyNames} />
                 <NameList label="欠席" names={ev.absentNames} />
                 <NameList label="未定" names={ev.undecidedNames} />
                 <NameList label="未回答" names={ev.noResponseNames} />

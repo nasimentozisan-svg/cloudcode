@@ -4,10 +4,10 @@ import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import { canManageSchedule, canRespondToEvent } from "@/lib/schedule-permissions";
 import { categoryGroups } from "@/lib/categories";
+import { buildEventForList } from "@/lib/schedule-view";
 import AppShell from "@/components/AppShell";
-import EventList, { type EventForList } from "@/components/EventList";
+import EventList from "@/components/EventList";
 import ScheduleCalendar, { type CalendarEvent } from "@/components/ScheduleCalendar";
-import type { AttendanceStatus, Category } from "@/generated/prisma/client";
 
 function pad(n: number) {
   return String(n).padStart(2, "0");
@@ -54,63 +54,13 @@ export default async function SchedulePage({
     .sort((a, b) => b.startAt.getTime() - a.startAt.getTime())
     .slice(0, 10);
 
-  const currentUserId = user.id;
-  const currentUserIsAdmin = user.isAdmin;
-
-  function toEventForList(ev: (typeof events)[number]): EventForList {
-    const eventCategories: Category[] = ev.categories.map((c) => c.category);
-    const eligibleUsers = allUsers.filter((u) =>
-      canRespondToEvent(u.categories.map((c) => c.category), eventCategories)
-    );
-    const counts = { attending: 0, absent: 0, undecided: 0, noResponse: 0 };
-    const attendingNames: string[] = [];
-    const absentNames: string[] = [];
-    const undecidedNames: string[] = [];
-    const respondedIds = new Set<string>();
-    for (const r of ev.responses) {
-      respondedIds.add(r.userId);
-      if (r.status === "ATTENDING") {
-        counts.attending++;
-        attendingNames.push(r.user.name);
-      } else if (r.status === "ABSENT") {
-        counts.absent++;
-        absentNames.push(r.user.name);
-      } else {
-        counts.undecided++;
-        undecidedNames.push(r.user.name);
-      }
-    }
-    const noResponseNames: string[] = [];
-    for (const u of eligibleUsers) {
-      if (!respondedIds.has(u.id)) {
-        counts.noResponse++;
-        noResponseNames.push(u.name);
-      }
-    }
-
-    const myResponse: AttendanceStatus | null =
-      ev.responses.find((r) => r.userId === currentUserId)?.status ?? null;
-
-    return {
-      id: ev.id,
-      title: ev.title,
-      location: ev.location,
-      notes: ev.notes,
-      startAt: ev.startAt.toISOString(),
-      createdByName: ev.createdBy.name,
-      categories: eventCategories,
-      myResponse,
-      canDelete: currentUserIsAdmin || ev.createdById === currentUserId,
-      eligible: canRespondToEvent(userCategories, eventCategories),
-      isPast: ev.startAt < now,
-      hasMatchResult: ev.matchResult !== null,
-      counts,
-      attendingNames,
-      absentNames,
-      undecidedNames,
-      noResponseNames,
-    };
-  }
+  const listCtx = {
+    currentUserId: user.id,
+    currentUserIsAdmin: user.isAdmin,
+    userCategories,
+    now,
+  };
+  const toEventForList = (ev: (typeof events)[number]) => buildEventForList(ev, allUsers, listCtx);
 
   const calendarEvents: CalendarEvent[] = events
     .filter(
@@ -120,7 +70,7 @@ export default async function SchedulePage({
     .map((ev) => {
       const eventCategories = ev.categories.map((c) => c.category);
       const eligible = canRespondToEvent(userCategories, eventCategories);
-      const myResponse = ev.responses.find((r) => r.userId === currentUserId)?.status ?? null;
+      const myResponse = ev.responses.find((r) => r.userId === user.id)?.status ?? null;
       return {
         id: ev.id,
         title: ev.title,

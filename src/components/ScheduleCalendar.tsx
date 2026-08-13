@@ -95,10 +95,11 @@ export default function ScheduleCalendar({
                     {dayEvents.slice(0, 3).map((ev) => {
                       const primaryColor = CATEGORY_GROUP_COLORS[ev.groups[0]];
                       return (
-                        <div
+                        <Link
                           key={ev.id}
+                          href={`/schedule/${ev.id}`}
                           title={ev.title}
-                          className={`truncate rounded px-1 py-0.5 text-[10px] leading-tight ${primaryColor.chipBg} ${primaryColor.chipText} ${
+                          className={`block truncate rounded px-1 py-0.5 text-[10px] leading-tight hover:opacity-75 ${primaryColor.chipBg} ${primaryColor.chipText} ${
                             ev.needsResponse ? "ring-1 ring-amber-500" : ""
                           }`}
                         >
@@ -114,7 +115,7 @@ export default function ScheduleCalendar({
                           )}
                           {ev.needsResponse && <span className="mr-0.5">●</span>}
                           {ev.title}
-                        </div>
+                        </Link>
                       );
                     })}
                     {dayEvents.length > 3 && (

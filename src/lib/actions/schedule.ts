@@ -173,7 +173,7 @@ export async function bulkCreateEventsAction(
 export async function respondToEventAction(eventId: string, status: string) {
   const user = await getCurrentUser();
   if (!user) throw new Error("ログインが必要です");
-  if (!["ATTENDING", "ABSENT", "UNDECIDED"].includes(status)) {
+  if (!["ATTENDING", "MATCH_ONLY", "ABSENT", "UNDECIDED"].includes(status)) {
     throw new Error("不正な出欠状態です");
   }
 
@@ -185,6 +185,33 @@ export async function respondToEventAction(eventId: string, status: string) {
 
   revalidatePath("/schedule");
   revalidatePath("/dashboard");
+}
+
+export async function updateEventNotesAction(
+  eventId: string,
+  notes: string
+): Promise<{ error?: string }> {
+  const user = await getCurrentUser();
+  if (!user || !canManageSchedule(user)) {
+    return { error: "備考を編集する権限がありません" };
+  }
+
+  const trimmed = notes.trim();
+  if (trimmed.length > 1000) {
+    return { error: "備考は1000文字以内で入力してください" };
+  }
+
+  const event = await prisma.event.findUnique({ where: { id: eventId } });
+  if (!event) return { error: "予定が見つかりません" };
+
+  await prisma.event.update({
+    where: { id: eventId },
+    data: { notes: trimmed.length > 0 ? trimmed : null },
+  });
+
+  revalidatePath("/schedule");
+  revalidatePath(`/schedule/${eventId}`);
+  return {};
 }
 
 export async function deleteEventAction(eventId: string) {
