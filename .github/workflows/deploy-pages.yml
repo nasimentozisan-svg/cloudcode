@@ -1,4 +1,4 @@
-name: Deploy EFK apps to GitHub Pages
+name: Deploy EFKtac to GitHub Pages
 
 on:
   push:
