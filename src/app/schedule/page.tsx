@@ -59,8 +59,16 @@ export default async function SchedulePage({
     currentUserIsAdmin: user.isAdmin,
     userCategories,
     now,
+    lastScheduleVisitAt: user.lastScheduleVisitAt,
   };
   const toEventForList = (ev: (typeof events)[number]) => buildEventForList(ev, allUsers, listCtx);
+
+  // Marks "new since last visit" as seen for next time - uses the value
+  // captured above for this render, so today's new-event badges still show.
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { lastScheduleVisitAt: now },
+  });
 
   const calendarEvents: CalendarEvent[] = events
     .filter(

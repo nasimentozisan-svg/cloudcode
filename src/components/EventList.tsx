@@ -19,6 +19,7 @@ export type EventForList = {
   canDelete: boolean;
   eligible: boolean;
   isPast: boolean;
+  isNew: boolean;
   hasMatchResult: boolean;
   counts: {
     attending: number;
@@ -134,6 +135,11 @@ export default function EventList({
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="font-semibold text-gray-900">{ev.title}</h3>
+                  {ev.isNew && (
+                    <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
+                      NEW
+                    </span>
+                  )}
                   {ev.eligible && !ev.isPast && (
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs font-medium ${

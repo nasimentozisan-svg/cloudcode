@@ -10,6 +10,7 @@ export type EventWithRelationsForList = {
   location: string | null;
   notes: string | null;
   startAt: Date;
+  createdAt: Date;
   createdById: string;
   createdBy: { name: string };
   categories: { category: Category }[];
@@ -31,6 +32,7 @@ export function buildEventForList(
     currentUserIsAdmin: boolean;
     userCategories: Category[];
     now: Date;
+    lastScheduleVisitAt: Date | null;
   }
 ): EventForList {
   const eventCategories: Category[] = ev.categories.map((c) => c.category);
@@ -82,6 +84,7 @@ export function buildEventForList(
     canDelete: ctx.currentUserIsAdmin || ev.createdById === ctx.currentUserId,
     eligible: canRespondToEvent(ctx.userCategories, eventCategories),
     isPast: ev.startAt < ctx.now,
+    isNew: !ctx.lastScheduleVisitAt || ev.createdAt > ctx.lastScheduleVisitAt,
     hasMatchResult: ev.matchResult !== null,
     counts,
     attendingNames,

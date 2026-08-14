@@ -44,6 +44,7 @@ model User {
   calendarToken             String?              @unique
   lineUserId                String?              @unique
   lineLinkCode              String?              @unique
+  lastScheduleVisitAt       DateTime?
   isAdmin                   Boolean              @default(false)
   createdAt                 DateTime             @default(now())
   updatedAt                 DateTime             @updatedAt

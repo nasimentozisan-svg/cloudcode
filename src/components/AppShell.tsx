@@ -3,36 +3,24 @@ import Link from "next/link";
 import { logoutAction } from "@/lib/actions/auth";
 import { formatCategories } from "@/lib/categories";
 import { prisma } from "@/lib/prisma";
-import { canAccessChannel } from "@/lib/channels";
 import { canRespondToEvent } from "@/lib/schedule-permissions";
+import { getUnreadChannelIds } from "@/lib/unread";
 import NavLinks, { type NavItem } from "@/components/NavLinks";
-import type { Category, User, UserCategory } from "@/generated/prisma/client";
+import type { User, UserCategory } from "@/generated/prisma/client";
 
-async function hasUnansweredSchedule(userId: string, userCategories: Category[]): Promise<boolean> {
+// The nav dot means "something to look at": either an event you haven't
+// answered yet, or one posted since you last opened the schedule page.
+async function hasScheduleUpdate(user: User & { categories: UserCategory[] }): Promise<boolean> {
   const upcomingEvents = await prisma.event.findMany({
     where: { startAt: { gte: new Date() } },
-    include: { categories: true, responses: { where: { userId } } },
+    include: { categories: true, responses: { where: { userId: user.id } } },
   });
-  return upcomingEvents.some(
-    (ev) =>
-      canRespondToEvent(userCategories, ev.categories.map((c) => c.category)) && ev.responses.length === 0
-  );
-}
-
-async function hasUnreadMessages(user: User & { categories: UserCategory[] }): Promise<boolean> {
-  const [channels, reads] = await Promise.all([
-    prisma.channel.findMany({
-      include: { categories: true, messages: { orderBy: { createdAt: "desc" }, take: 1 } },
-    }),
-    prisma.channelRead.findMany({ where: { userId: user.id } }),
-  ]);
-  const readMap = new Map(reads.map((r) => [r.channelId, r.lastReadAt]));
-  return channels.some((c) => {
-    if (!canAccessChannel(user, c)) return false;
-    const latest = c.messages[0];
-    if (!latest) return false;
-    const lastRead = readMap.get(c.id);
-    return !lastRead || latest.createdAt > lastRead;
+  const userCategories = user.categories.map((c) => c.category);
+  return upcomingEvents.some((ev) => {
+    const eligible = canRespondToEvent(userCategories, ev.categories.map((c) => c.category));
+    const unanswered = eligible && ev.responses.length === 0;
+    const isNew = !user.lastScheduleVisitAt || ev.createdAt > user.lastScheduleVisitAt;
+    return unanswered || isNew;
   });
 }
 
@@ -43,11 +31,11 @@ export default async function AppShell({
   user: User & { categories: UserCategory[] };
   children: React.ReactNode;
 }) {
-  const userCategories = user.categories.map((c) => c.category);
-  const [scheduleBadge, messagesBadge] = await Promise.all([
-    hasUnansweredSchedule(user.id, userCategories),
-    hasUnreadMessages(user),
+  const [scheduleBadge, unreadChannelIds] = await Promise.all([
+    hasScheduleUpdate(user),
+    getUnreadChannelIds(user),
   ]);
+  const messagesBadge = unreadChannelIds.size > 0;
 
   const navItems: NavItem[] = [
     { href: "/dashboard", label: "ホーム" },

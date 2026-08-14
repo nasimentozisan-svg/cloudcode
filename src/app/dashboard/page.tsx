@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import AppShell from "@/components/AppShell";
 import { formatCategories } from "@/lib/categories";
 import { canAccessChannel, ensureDefaultChannels } from "@/lib/channels";
+import { getUnreadChannelIds } from "@/lib/unread";
 import { EXTERNAL_APPS } from "@/lib/external-apps";
 import SizeEditForm from "@/components/SizeEditForm";
 import EmailNotificationToggle from "@/components/EmailNotificationToggle";
@@ -47,10 +48,13 @@ export default async function DashboardPage() {
   const attendanceRate = calculateAttendanceRate(user.id, userCategories, pastEvents);
 
   await ensureDefaultChannels();
-  const allChannels = await prisma.channel.findMany({
-    include: { categories: true, _count: { select: { messages: true } } },
-    orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
-  });
+  const [allChannels, unreadChannelIds] = await Promise.all([
+    prisma.channel.findMany({
+      include: { categories: true, _count: { select: { messages: true } } },
+      orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+    }),
+    getUnreadChannelIds(user),
+  ]);
   const channels = allChannels.filter((c) => canAccessChannel(user, c));
 
   return (
@@ -138,7 +142,14 @@ export default async function DashboardPage() {
             {upcomingEvents.map((ev) => (
               <li key={ev.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
                 <div>
-                  <p className="font-medium text-gray-900">{ev.title}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-gray-900">{ev.title}</p>
+                    {(!user.lastScheduleVisitAt || ev.createdAt > user.lastScheduleVisitAt) && (
+                      <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
+                        NEW
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-gray-500">
                     {ev.startAt.toLocaleString("ja-JP", {
                       month: "numeric",
@@ -170,8 +181,13 @@ export default async function DashboardPage() {
           <Link
             key={c.id}
             href={`/messages/${c.id}`}
-            className="rounded-xl border border-gray-200 bg-white p-5 hover:bg-gray-50"
+            className="relative rounded-xl border border-gray-200 bg-white p-5 hover:bg-gray-50"
           >
+            {unreadChannelIds.has(c.id) && (
+              <span className="absolute right-3 top-3 rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
+                NEW
+              </span>
+            )}
             <h3 className="font-semibold text-gray-900"># {c.name}</h3>
             <p className="mt-1 text-xs text-gray-400">{c._count.messages}件のメッセージ</p>
           </Link>

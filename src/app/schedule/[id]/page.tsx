@@ -36,6 +36,7 @@ export default async function EventDetailPage({
     currentUserIsAdmin: user.isAdmin,
     userCategories: user.categories.map((c) => c.category),
     now: new Date(),
+    lastScheduleVisitAt: user.lastScheduleVisitAt,
   });
 
   return (

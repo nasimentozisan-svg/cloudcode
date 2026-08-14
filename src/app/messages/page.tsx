@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import { canAccessChannel, ensureDefaultChannels } from "@/lib/channels";
+import { getUnreadChannelIds } from "@/lib/unread";
 import AppShell from "@/components/AppShell";
 
 export default async function MessagesPage() {
@@ -11,10 +12,13 @@ export default async function MessagesPage() {
 
   await ensureDefaultChannels();
 
-  const channels = await prisma.channel.findMany({
-    include: { categories: true, _count: { select: { messages: true } } },
-    orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
-  });
+  const [channels, unreadChannelIds] = await Promise.all([
+    prisma.channel.findMany({
+      include: { categories: true, _count: { select: { messages: true } } },
+      orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+    }),
+    getUnreadChannelIds(user),
+  ]);
 
   const accessible = channels.filter((c) => canAccessChannel(user, c));
 
@@ -38,7 +42,14 @@ export default async function MessagesPage() {
             className="flex items-center justify-between px-5 py-4 hover:bg-gray-50"
           >
             <div>
-              <p className="font-medium text-gray-900"># {c.name}</p>
+              <div className="flex items-center gap-2">
+                <p className="font-medium text-gray-900"># {c.name}</p>
+                {unreadChannelIds.has(c.id) && (
+                  <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
+                    NEW
+                  </span>
+                )}
+              </div>
               {c.description && <p className="text-sm text-gray-500">{c.description}</p>}
             </div>
             <span className="text-xs text-gray-400">{c._count.messages}件</span>
