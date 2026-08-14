@@ -28,7 +28,7 @@ export default async function MessagesPage() {
         <h2 className="text-lg font-bold text-gray-900">メッセージ</h2>
         <Link
           href="/messages/new"
-          className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+          className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 active:bg-emerald-800"
         >
           チャンネルを追加
         </Link>
@@ -39,7 +39,7 @@ export default async function MessagesPage() {
           <Link
             key={c.id}
             href={`/messages/${c.id}`}
-            className="flex items-center justify-between px-5 py-4 hover:bg-gray-50"
+            className="flex items-center justify-between px-5 py-4 transition-colors hover:bg-gray-50 active:bg-gray-100"
           >
             <div>
               <div className="flex items-center gap-2">

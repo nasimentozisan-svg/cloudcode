@@ -7,6 +7,7 @@ export type CalendarEvent = {
   day: number;
   groups: CategoryGroup[];
   needsResponse: boolean;
+  isNew: boolean;
 };
 
 const WEEKDAY_LABELS = ["日", "月", "火", "水", "木", "金", "土"];
@@ -53,7 +54,7 @@ export default function ScheduleCalendar({
       <div className="flex items-center justify-between">
         <Link
           href={prevHref}
-          className="rounded-md px-3 py-1 text-sm text-gray-600 hover:bg-gray-100"
+          className="rounded-md px-3 py-1 text-sm text-gray-600 transition-colors hover:bg-gray-100 active:bg-gray-200"
         >
           ← 前月
         </Link>
@@ -62,7 +63,7 @@ export default function ScheduleCalendar({
         </h3>
         <Link
           href={nextHref}
-          className="rounded-md px-3 py-1 text-sm text-gray-600 hover:bg-gray-100"
+          className="rounded-md px-3 py-1 text-sm text-gray-600 transition-colors hover:bg-gray-100 active:bg-gray-200"
         >
           翌月 →
         </Link>
@@ -99,10 +100,13 @@ export default function ScheduleCalendar({
                           key={ev.id}
                           href={`/schedule/${ev.id}`}
                           title={ev.title}
-                          className={`block truncate rounded px-1 py-0.5 text-[10px] leading-tight hover:opacity-75 ${primaryColor.chipBg} ${primaryColor.chipText} ${
+                          className={`relative block truncate rounded px-1 py-0.5 text-[10px] leading-tight transition-opacity hover:opacity-75 active:opacity-50 ${primaryColor.chipBg} ${primaryColor.chipText} ${
                             ev.needsResponse ? "ring-1 ring-amber-500" : ""
                           }`}
                         >
+                          {ev.isNew && (
+                            <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500" />
+                          )}
                           {ev.groups.length > 1 && (
                             <span className="mr-0.5 inline-flex gap-0.5 align-middle">
                               {ev.groups.slice(1).map((g) => (
@@ -139,6 +143,10 @@ export default function ScheduleCalendar({
         <span className="flex items-center gap-1">
           <span className="text-amber-500">●</span>
           未回答
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block h-2 w-2 rounded-full bg-red-500" />
+          新着
         </span>
       </div>
     </div>

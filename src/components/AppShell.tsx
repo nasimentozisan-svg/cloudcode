@@ -4,22 +4,25 @@ import { logoutAction } from "@/lib/actions/auth";
 import { formatCategories } from "@/lib/categories";
 import { prisma } from "@/lib/prisma";
 import { canRespondToEvent } from "@/lib/schedule-permissions";
-import { getUnreadChannelIds } from "@/lib/unread";
+import { getUnreadChannelIds, getReadEventIds } from "@/lib/unread";
 import NavLinks, { type NavItem } from "@/components/NavLinks";
 import type { User, UserCategory } from "@/generated/prisma/client";
 
 // The nav dot means "something to look at": either an event you haven't
-// answered yet, or one posted since you last opened the schedule page.
+// answered yet, or one you haven't opened at all yet.
 async function hasScheduleUpdate(user: User & { categories: UserCategory[] }): Promise<boolean> {
-  const upcomingEvents = await prisma.event.findMany({
-    where: { startAt: { gte: new Date() } },
-    include: { categories: true, responses: { where: { userId: user.id } } },
-  });
+  const [upcomingEvents, readEventIds] = await Promise.all([
+    prisma.event.findMany({
+      where: { startAt: { gte: new Date() } },
+      include: { categories: true, responses: { where: { userId: user.id } } },
+    }),
+    getReadEventIds(user.id),
+  ]);
   const userCategories = user.categories.map((c) => c.category);
   return upcomingEvents.some((ev) => {
     const eligible = canRespondToEvent(userCategories, ev.categories.map((c) => c.category));
     const unanswered = eligible && ev.responses.length === 0;
-    const isNew = !user.lastScheduleVisitAt || ev.createdAt > user.lastScheduleVisitAt;
+    const isNew = !readEventIds.has(ev.id);
     return unanswered || isNew;
   });
 }

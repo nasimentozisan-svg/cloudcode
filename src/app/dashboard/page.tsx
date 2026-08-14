@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import AppShell from "@/components/AppShell";
 import { formatCategories } from "@/lib/categories";
 import { canAccessChannel, ensureDefaultChannels } from "@/lib/channels";
-import { getUnreadChannelIds } from "@/lib/unread";
+import { getUnreadChannelIds, getReadEventIds } from "@/lib/unread";
 import { EXTERNAL_APPS } from "@/lib/external-apps";
 import SizeEditForm from "@/components/SizeEditForm";
 import EmailNotificationToggle from "@/components/EmailNotificationToggle";
@@ -28,7 +28,7 @@ export default async function DashboardPage() {
 
   const userCategories = user.categories.map((c) => c.category);
   const now = new Date();
-  const [upcomingEvents, pastEvents] = await Promise.all([
+  const [upcomingEvents, pastEvents, readEventIds] = await Promise.all([
     prisma.event.findMany({
       where: {
         startAt: { gte: now },
@@ -44,6 +44,7 @@ export default async function DashboardPage() {
       where: { startAt: { lt: now } },
       include: { categories: true, responses: true },
     }),
+    getReadEventIds(user.id),
   ]);
   const attendanceRate = calculateAttendanceRate(user.id, userCategories, pastEvents);
 
@@ -130,7 +131,7 @@ export default async function DashboardPage() {
 
       <div className="mt-8 flex items-center justify-between">
         <h2 className="text-lg font-bold text-gray-900">今後の予定</h2>
-        <Link href="/schedule" className="text-sm text-emerald-600 hover:underline">
+        <Link href="/schedule" className="text-sm text-emerald-600 hover:underline active:text-emerald-800">
           すべて見る
         </Link>
       </div>
@@ -140,30 +141,35 @@ export default async function DashboardPage() {
         ) : (
           <ul className="divide-y divide-gray-100">
             {upcomingEvents.map((ev) => (
-              <li key={ev.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium text-gray-900">{ev.title}</p>
-                    {(!user.lastScheduleVisitAt || ev.createdAt > user.lastScheduleVisitAt) && (
-                      <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
-                        NEW
-                      </span>
-                    )}
+              <li key={ev.id}>
+                <Link
+                  href={`/schedule/${ev.id}`}
+                  className="flex items-center justify-between rounded-md px-2 py-3 -mx-2 transition-colors hover:bg-gray-50 active:bg-gray-100"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-gray-900">{ev.title}</p>
+                      {!readEventIds.has(ev.id) && (
+                        <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
+                          NEW
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-500">
+                      {ev.startAt.toLocaleString("ja-JP", {
+                        month: "numeric",
+                        day: "numeric",
+                        weekday: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                      {ev.location && ` ・ ${ev.location}`}
+                    </p>
                   </div>
-                  <p className="text-sm text-gray-500">
-                    {ev.startAt.toLocaleString("ja-JP", {
-                      month: "numeric",
-                      day: "numeric",
-                      weekday: "short",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                    {ev.location && ` ・ ${ev.location}`}
-                  </p>
-                </div>
-                <span className="shrink-0 rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-600">
-                  {ev.responses[0] ? STATUS_LABELS[ev.responses[0].status] : "未回答"}
-                </span>
+                  <span className="shrink-0 rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-600">
+                    {ev.responses[0] ? STATUS_LABELS[ev.responses[0].status] : "未回答"}
+                  </span>
+                </Link>
               </li>
             ))}
           </ul>
@@ -172,7 +178,7 @@ export default async function DashboardPage() {
 
       <div className="mt-8 flex items-center justify-between">
         <h2 className="text-lg font-bold text-gray-900">メッセージ</h2>
-        <Link href="/messages" className="text-sm text-emerald-600 hover:underline">
+        <Link href="/messages" className="text-sm text-emerald-600 hover:underline active:text-emerald-800">
           すべて見る
         </Link>
       </div>
@@ -181,7 +187,7 @@ export default async function DashboardPage() {
           <Link
             key={c.id}
             href={`/messages/${c.id}`}
-            className="relative rounded-xl border border-gray-200 bg-white p-5 hover:bg-gray-50"
+            className="relative rounded-xl border border-gray-200 bg-white p-5 transition-colors hover:bg-gray-50 active:bg-gray-100"
           >
             {unreadChannelIds.has(c.id) && (
               <span className="absolute right-3 top-3 rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
@@ -211,7 +217,7 @@ export default async function DashboardPage() {
             href={app.href}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 hover:bg-gray-50"
+            className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 transition-colors hover:bg-gray-50 active:bg-gray-100"
           >
             <Image
               src={app.icon}

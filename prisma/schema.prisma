@@ -44,7 +44,6 @@ model User {
   calendarToken             String?              @unique
   lineUserId                String?              @unique
   lineLinkCode              String?              @unique
-  lastScheduleVisitAt       DateTime?
   isAdmin                   Boolean              @default(false)
   createdAt                 DateTime             @default(now())
   updatedAt                 DateTime             @updatedAt
@@ -55,6 +54,7 @@ model User {
   messages                  Message[]
   pushSubscriptions         PushSubscription[]
   channelReads              ChannelRead[]
+  eventReads                EventRead[]
 }
 
 model PushSubscription {
@@ -103,8 +103,20 @@ model Event {
   categories  EventCategory[]
   responses   AttendanceResponse[]
   matchResult MatchResult?
+  reads       EventRead[]
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
+}
+
+model EventRead {
+  id      String   @id @default(cuid())
+  userId  String
+  eventId String
+  readAt  DateTime @default(now())
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event   Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId])
 }
 
 model EventCategory {

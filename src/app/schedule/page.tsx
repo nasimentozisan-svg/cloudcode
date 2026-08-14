@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { canManageSchedule, canRespondToEvent } from "@/lib/schedule-permissions";
 import { categoryGroups } from "@/lib/categories";
 import { buildEventForList } from "@/lib/schedule-view";
+import { getReadEventIds } from "@/lib/unread";
 import AppShell from "@/components/AppShell";
 import EventList from "@/components/EventList";
 import ScheduleCalendar, { type CalendarEvent } from "@/components/ScheduleCalendar";
@@ -35,7 +36,7 @@ export default async function SchedulePage({
   }
 
   // すべてのカテゴリーの予定を全員が閲覧できるようにする（回答できるのは対象カテゴリーの人のみ）
-  const [events, allUsers] = await Promise.all([
+  const [events, allUsers, readEventIds] = await Promise.all([
     prisma.event.findMany({
       include: {
         categories: true,
@@ -46,6 +47,7 @@ export default async function SchedulePage({
       orderBy: { startAt: "asc" },
     }),
     prisma.user.findMany({ select: { id: true, name: true, categories: true } }),
+    getReadEventIds(user.id),
   ]);
 
   const upcoming = events.filter((e) => e.startAt >= now);
@@ -59,16 +61,9 @@ export default async function SchedulePage({
     currentUserIsAdmin: user.isAdmin,
     userCategories,
     now,
-    lastScheduleVisitAt: user.lastScheduleVisitAt,
+    readEventIds,
   };
   const toEventForList = (ev: (typeof events)[number]) => buildEventForList(ev, allUsers, listCtx);
-
-  // Marks "new since last visit" as seen for next time - uses the value
-  // captured above for this render, so today's new-event badges still show.
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { lastScheduleVisitAt: now },
-  });
 
   const calendarEvents: CalendarEvent[] = events
     .filter(
@@ -85,6 +80,7 @@ export default async function SchedulePage({
         day: ev.startAt.getDate(),
         groups: categoryGroups(eventCategories),
         needsResponse: eligible && ev.startAt >= now && myResponse === null,
+        isNew: !readEventIds.has(ev.id),
       };
     });
 
@@ -98,13 +94,13 @@ export default async function SchedulePage({
           <div className="flex gap-2">
             <Link
               href="/schedule/import"
-              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 active:bg-gray-100"
             >
               まとめてインポート
             </Link>
             <Link
               href="/schedule/new"
-              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 active:bg-emerald-800"
             >
               予定を作成
             </Link>

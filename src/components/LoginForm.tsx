@@ -42,7 +42,7 @@ export default function LoginForm() {
 
       <p className="text-center text-sm text-gray-500">
         アカウントをお持ちでない方は{" "}
-        <Link href="/register" className="text-emerald-600 hover:underline">
+        <Link href="/register" className="text-emerald-600 hover:underline active:text-emerald-800">
           新規登録
         </Link>
       </p>

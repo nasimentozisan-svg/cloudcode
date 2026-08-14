@@ -223,7 +223,7 @@ export default function EventList({
                 {manageAllowed && ev.isPast && (
                   <Link
                     href={`/schedule/${ev.id}/result`}
-                    className="text-xs text-emerald-700 hover:underline"
+                    className="text-xs text-emerald-700 hover:underline active:text-emerald-900"
                   >
                     {ev.hasMatchResult ? "試合結果を編集" : "試合結果を入力"}
                   </Link>
