@@ -6,6 +6,7 @@ import { canManageSchedule, canRespondToEvent } from "@/lib/schedule-permissions
 import { categoryGroups } from "@/lib/categories";
 import { buildEventForList } from "@/lib/schedule-view";
 import { getReadEventIds } from "@/lib/unread";
+import { getJSTDateParts } from "@/lib/datetime";
 import AppShell from "@/components/AppShell";
 import EventList from "@/components/EventList";
 import ScheduleCalendar, { type CalendarEvent } from "@/components/ScheduleCalendar";
@@ -27,8 +28,9 @@ export default async function SchedulePage({
 
   const { month: monthParam } = await searchParams;
   const now = new Date();
-  let calendarYear = now.getFullYear();
-  let calendarMonth = now.getMonth() + 1;
+  const nowParts = getJSTDateParts(now);
+  let calendarYear = nowParts.year;
+  let calendarMonth = nowParts.month;
   if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
     const [y, m] = monthParam.split("-").map(Number);
     calendarYear = y;
@@ -66,10 +68,10 @@ export default async function SchedulePage({
   const toEventForList = (ev: (typeof events)[number]) => buildEventForList(ev, allUsers, listCtx);
 
   const calendarEvents: CalendarEvent[] = events
-    .filter(
-      (ev) =>
-        ev.startAt.getFullYear() === calendarYear && ev.startAt.getMonth() + 1 === calendarMonth
-    )
+    .filter((ev) => {
+      const parts = getJSTDateParts(ev.startAt);
+      return parts.year === calendarYear && parts.month === calendarMonth;
+    })
     .map((ev) => {
       const eventCategories = ev.categories.map((c) => c.category);
       const eligible = canRespondToEvent(userCategories, eventCategories);
@@ -77,14 +79,14 @@ export default async function SchedulePage({
       return {
         id: ev.id,
         title: ev.title,
-        day: ev.startAt.getDate(),
+        day: getJSTDateParts(ev.startAt).day,
         groups: categoryGroups(eventCategories),
         needsResponse: eligible && ev.startAt >= now && myResponse === null,
         isNew: !readEventIds.has(ev.id),
       };
     });
 
-  const todayKey = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const todayKey = `${nowParts.year}-${pad(nowParts.month)}-${pad(nowParts.day)}`;
 
   return (
     <AppShell user={user}>

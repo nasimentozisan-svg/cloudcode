@@ -3,11 +3,13 @@ import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import { canAccessChannel, ensureDefaultChannels } from "@/lib/channels";
+import { formatJST } from "@/lib/datetime";
 import AppShell from "@/components/AppShell";
 import MessageComposer from "@/components/MessageComposer";
 import MessageBody from "@/components/MessageBody";
 import PollRefresh from "@/components/PollRefresh";
 import ChannelDeleteButton from "@/components/ChannelDeleteButton";
+import MessageDeleteButton from "@/components/MessageDeleteButton";
 
 export default async function ChannelPage({
   params,
@@ -30,7 +32,7 @@ export default async function ChannelPage({
   const [recent, allUsers] = await Promise.all([
     prisma.message.findMany({
       where: { channelId },
-      include: { author: { select: { name: true } } },
+      include: { author: { select: { id: true, name: true } } },
       orderBy: { createdAt: "desc" },
       take: 200,
     }),
@@ -75,14 +77,19 @@ export default async function ChannelPage({
           )}
           {messages.map((m) => (
             <div key={m.id}>
-              <p className="text-xs text-gray-400">
-                {m.author.name}{" "}
-                {m.createdAt.toLocaleString("ja-JP", {
-                  month: "numeric",
-                  day: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
+              <p className="flex items-center gap-2 text-xs text-gray-400">
+                <span>
+                  {m.author?.name ?? "退会済みメンバー"}{" "}
+                  {formatJST(m.createdAt, {
+                    month: "numeric",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+                {(user.isAdmin || m.author?.id === user.id) && (
+                  <MessageDeleteButton messageId={m.id} />
+                )}
               </p>
               <MessageBody body={m.body} members={members} />
             </div>

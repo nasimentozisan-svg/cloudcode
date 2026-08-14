@@ -9,6 +9,7 @@ import { createEventSchema, categoryEnum } from "@/lib/validation";
 import { escapeHtml } from "@/lib/email";
 import { notifyRecipients } from "@/lib/notify";
 import { CATEGORY_LABELS } from "@/lib/categories";
+import { formatJST, parseJSTDatetimeLocal } from "@/lib/datetime";
 import type { AttendanceStatus, Category } from "@/generated/prisma/client";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
@@ -37,8 +38,8 @@ export async function createEventAction(
   }
 
   const { title, startAt, location, notes, categories } = parsed.data;
-  const startAtDate = new Date(startAt);
-  if (Number.isNaN(startAtDate.getTime())) {
+  const startAtDate = parseJSTDatetimeLocal(startAt);
+  if (!startAtDate) {
     return { error: "日時の形式が正しくありません" };
   }
 
@@ -62,7 +63,7 @@ export async function createEventAction(
     },
     select: { id: true, email: true, receiveEmailNotifications: true },
   });
-  const dateLabel = startAtDate.toLocaleString("ja-JP", {
+  const dateLabel = formatJST(startAtDate, {
     month: "numeric",
     day: "numeric",
     weekday: "short",
@@ -86,6 +87,60 @@ export async function createEventAction(
   revalidatePath("/schedule");
   revalidatePath("/dashboard");
   redirect("/schedule");
+}
+
+export async function updateEventAction(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!user || !canManageSchedule(user)) {
+    return { error: "予定を編集する権限がありません" };
+  }
+
+  const eventId = formData.get("eventId");
+  if (typeof eventId !== "string" || eventId.length === 0) {
+    return { error: "予定が見つかりません" };
+  }
+
+  const parsed = createEventSchema.safeParse({
+    title: formData.get("title"),
+    startAt: formData.get("startAt"),
+    location: formData.get("location"),
+    notes: formData.get("notes"),
+    categories: formData.getAll("categories"),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "入力内容を確認してください" };
+  }
+
+  const { title, startAt, location, notes, categories } = parsed.data;
+  const startAtDate = parseJSTDatetimeLocal(startAt);
+  if (!startAtDate) {
+    return { error: "日時の形式が正しくありません" };
+  }
+
+  const event = await prisma.event.findUnique({ where: { id: eventId } });
+  if (!event) return { error: "予定が見つかりません" };
+
+  await prisma.event.update({
+    where: { id: eventId },
+    data: {
+      title,
+      startAt: startAtDate,
+      location: location ?? null,
+      notes: notes ?? null,
+      categories: {
+        deleteMany: {},
+        create: (categories as Category[]).map((category) => ({ category })),
+      },
+    },
+  });
+
+  revalidatePath("/schedule");
+  revalidatePath(`/schedule/${eventId}`);
+  redirect(`/schedule/${eventId}`);
 }
 
 export type BulkEventInput = { title: string; startAt: string; location: string | null };
@@ -149,7 +204,7 @@ export async function bulkCreateEventsAction(
   });
   const listHtml = validEvents
     .map((e) => {
-      const dateLabel = e.startAt.toLocaleString("ja-JP", {
+      const dateLabel = formatJST(e.startAt, {
         month: "numeric",
         day: "numeric",
         weekday: "short",

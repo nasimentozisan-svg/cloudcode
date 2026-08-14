@@ -10,8 +10,8 @@ export type EventWithRelationsForList = {
   location: string | null;
   notes: string | null;
   startAt: Date;
-  createdById: string;
-  createdBy: { name: string };
+  createdById: string | null;
+  createdBy: { name: string } | null;
   categories: { category: Category }[];
   responses: { userId: string; status: AttendanceStatus; user: { name: string } }[];
   matchResult: { id: string } | null;
@@ -77,7 +77,7 @@ export function buildEventForList(
     location: ev.location,
     notes: ev.notes,
     startAt: ev.startAt.toISOString(),
-    createdByName: ev.createdBy.name,
+    createdByName: ev.createdBy?.name ?? "退会済みメンバー",
     categories: eventCategories,
     myResponse,
     canDelete: ctx.currentUserIsAdmin || ev.createdById === ctx.currentUserId,

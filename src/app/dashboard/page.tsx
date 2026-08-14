@@ -7,6 +7,7 @@ import AppShell from "@/components/AppShell";
 import { formatCategories } from "@/lib/categories";
 import { canAccessChannel, ensureDefaultChannels } from "@/lib/channels";
 import { getUnreadChannelIds, getReadEventIds } from "@/lib/unread";
+import { formatJST } from "@/lib/datetime";
 import { EXTERNAL_APPS } from "@/lib/external-apps";
 import SizeEditForm from "@/components/SizeEditForm";
 import EmailNotificationToggle from "@/components/EmailNotificationToggle";
@@ -156,7 +157,7 @@ export default async function DashboardPage() {
                       )}
                     </div>
                     <p className="text-sm text-gray-500">
-                      {ev.startAt.toLocaleString("ja-JP", {
+                      {formatJST(ev.startAt, {
                         month: "numeric",
                         day: "numeric",
                         weekday: "short",

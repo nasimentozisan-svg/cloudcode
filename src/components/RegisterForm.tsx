@@ -56,6 +56,7 @@ export default function RegisterForm() {
         <input
           name="email"
           type="email"
+          autoComplete="username"
           required
           className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
           placeholder="you@example.com"
@@ -69,6 +70,7 @@ export default function RegisterForm() {
         <input
           name="password"
           type="password"
+          autoComplete="new-password"
           required
           minLength={8}
           className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"

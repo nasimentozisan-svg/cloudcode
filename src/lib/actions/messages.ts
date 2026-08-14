@@ -127,6 +127,20 @@ export async function postMessageAction(channelId: string, body: string) {
   revalidatePath(`/messages/${channelId}`);
 }
 
+export async function deleteMessageAction(messageId: string) {
+  const user = await getCurrentUser();
+  if (!user) throw new Error("ログインが必要です");
+
+  const message = await prisma.message.findUnique({ where: { id: messageId } });
+  if (!message) return;
+  if (!user.isAdmin && message.authorId !== user.id) {
+    throw new Error("このメッセージを削除する権限がありません");
+  }
+
+  await prisma.message.delete({ where: { id: messageId } });
+  revalidatePath(`/messages/${message.channelId}`);
+}
+
 export async function deleteChannelAction(channelId: string) {
   const user = await getCurrentUser();
   if (!user) throw new Error("ログインが必要です");

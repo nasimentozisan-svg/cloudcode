@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { respondToEventAction, deleteEventAction, updateEventNotesAction } from "@/lib/actions/schedule";
 import { CATEGORY_LABELS, CATEGORY_GROUP_COLORS, categoryGroups } from "@/lib/categories";
@@ -70,11 +70,33 @@ export default function EventList({
   manageAllowed?: boolean;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
   const [notesDraft, setNotesDraft] = useState("");
+
+  function handleDelete(ev: EventForList) {
+    if (!confirm(`「${ev.title}」を削除しますか？`)) return;
+    setError(null);
+    startTransition(async () => {
+      try {
+        await deleteEventAction(ev.id);
+        // If we're on this event's own detail page (opened from a calendar
+        // chip), refreshing would re-run the page's own findUnique and 404,
+        // since the event no longer exists - navigate back to the list/
+        // calendar instead.
+        if (pathname === `/schedule/${ev.id}`) {
+          router.push("/schedule");
+        } else {
+          router.refresh();
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "削除に失敗しました");
+      }
+    });
+  }
 
   function toggleExpanded(id: string) {
     setExpandedIds((prev) => {
@@ -220,6 +242,14 @@ export default function EventList({
                 )}
               </div>
               <div className="flex shrink-0 flex-col items-end gap-2">
+                {manageAllowed && (
+                  <Link
+                    href={`/schedule/${ev.id}/edit`}
+                    className="text-xs text-emerald-700 hover:underline active:text-emerald-900"
+                  >
+                    編集
+                  </Link>
+                )}
                 {manageAllowed && ev.isPast && (
                   <Link
                     href={`/schedule/${ev.id}/result`}
@@ -232,13 +262,7 @@ export default function EventList({
                   <button
                     type="button"
                     disabled={isPending}
-                    onClick={() =>
-                      run(async () => {
-                        if (confirm(`「${ev.title}」を削除しますか？`)) {
-                          await deleteEventAction(ev.id);
-                        }
-                      })
-                    }
+                    onClick={() => handleDelete(ev)}
                     className="text-xs text-red-600 hover:underline disabled:opacity-40"
                   >
                     削除

@@ -19,6 +19,7 @@ export default function LoginForm() {
         <input
           name="email"
           type="email"
+          autoComplete="username"
           required
           className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
         />
@@ -31,6 +32,7 @@ export default function LoginForm() {
         <input
           name="password"
           type="password"
+          autoComplete="current-password"
           required
           className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
         />
