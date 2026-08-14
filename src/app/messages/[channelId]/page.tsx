@@ -43,6 +43,15 @@ export default async function ChannelPage({
     .filter((u) => canAccessChannel(u, channel))
     .map((u) => ({ id: u.id, name: u.name }));
 
+  // Marks the channel read so the nav's unread dot clears - runs on every
+  // visit (including the 8s poll refresh below) rather than tracking scroll
+  // position, since "opened the channel" is a good enough proxy for "seen".
+  await prisma.channelRead.upsert({
+    where: { userId_channelId: { userId: user.id, channelId } },
+    create: { userId: user.id, channelId },
+    update: { lastReadAt: new Date() },
+  });
+
   return (
     <AppShell user={user}>
       <PollRefresh intervalMs={8000} />

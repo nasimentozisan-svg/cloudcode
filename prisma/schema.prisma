@@ -53,6 +53,7 @@ model User {
   createdChannels           Channel[]
   messages                  Message[]
   pushSubscriptions         PushSubscription[]
+  channelReads              ChannelRead[]
 }
 
 model PushSubscription {
@@ -159,7 +160,19 @@ model Channel {
   createdBy   User?             @relation(fields: [createdById], references: [id])
   categories  ChannelCategory[]
   messages    Message[]
+  reads       ChannelRead[]
   createdAt   DateTime          @default(now())
+}
+
+model ChannelRead {
+  id         String   @id @default(cuid())
+  userId     String
+  channelId  String
+  lastReadAt DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel    Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, channelId])
 }
 
 model ChannelCategory {
