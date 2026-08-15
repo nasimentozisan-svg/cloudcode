@@ -27,6 +27,7 @@ export default function AdminUserTable({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [filterCategory, setFilterCategory] = useState<Category | "ALL">("ALL");
 
   function run(action: () => Promise<void>) {
     setError(null);
@@ -40,9 +41,42 @@ export default function AdminUserTable({
     });
   }
 
+  const visibleUsers =
+    filterCategory === "ALL"
+      ? users
+      : users.filter((u) => u.categories.some((c) => c.category === filterCategory));
+
   return (
     <div>
       {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <span className="text-xs text-gray-500">カテゴリーで絞り込み:</span>
+        <button
+          type="button"
+          onClick={() => setFilterCategory("ALL")}
+          className={`rounded-full px-3 py-1 text-xs font-medium ${
+            filterCategory === "ALL"
+              ? "bg-emerald-600 text-white"
+              : "border border-gray-300 text-gray-600 hover:bg-gray-50"
+          }`}
+        >
+          全員（{users.length}）
+        </button>
+        {CATEGORY_OPTIONS.map((c) => (
+          <button
+            key={c}
+            type="button"
+            onClick={() => setFilterCategory(c)}
+            className={`rounded-full px-3 py-1 text-xs font-medium ${
+              filterCategory === c
+                ? "bg-emerald-600 text-white"
+                : "border border-gray-300 text-gray-600 hover:bg-gray-50"
+            }`}
+          >
+            {CATEGORY_LABELS[c]}
+          </button>
+        ))}
+      </div>
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
         <table className="min-w-full divide-y divide-gray-200 text-sm">
           <thead className="bg-gray-50 text-left text-gray-500">
@@ -59,7 +93,7 @@ export default function AdminUserTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {users.map((u) => (
+            {visibleUsers.map((u) => (
               <tr key={u.id}>
                 <td className="px-4 py-2">
                   {u.cardImagePath ? (
@@ -75,7 +109,7 @@ export default function AdminUserTable({
                     <span className="text-xs text-gray-300">-</span>
                   )}
                 </td>
-                <td className="px-4 py-2 font-medium text-gray-900">{u.name}</td>
+                <td className="whitespace-nowrap px-4 py-2 font-medium text-gray-900">{u.name}</td>
                 <td className="px-4 py-2 text-gray-500">
                   {u.uniformNumber ?? "-"}
                 </td>
@@ -111,7 +145,7 @@ export default function AdminUserTable({
                     </button>
                   )}
                 </td>
-                <td className="px-4 py-2 text-gray-500">{u.email}</td>
+                <td className="whitespace-nowrap px-4 py-2 text-gray-500">{u.email}</td>
                 <td className="px-4 py-2">
                   <label className="inline-flex items-center gap-2">
                     <input

@@ -13,7 +13,7 @@ export default async function AdminPage() {
 
   const [users, pastEvents] = await Promise.all([
     prisma.user.findMany({
-      orderBy: { name: "asc" },
+      orderBy: [{ uniformNumber: { sort: "asc", nulls: "last" } }, { name: "asc" }],
       include: { categories: true },
     }),
     prisma.event.findMany({

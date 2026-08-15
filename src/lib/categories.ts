@@ -20,10 +20,10 @@ export function isGuardian(categories: Category[]): boolean {
   return categories.includes("GUARDIAN");
 }
 
-// Guardians land on the schedule (their main reason to open the app);
-// everyone else lands on the dashboard/mypage.
+// Guardians have no messaging feature, so they land on the schedule
+// instead; everyone else lands on messages.
 export function defaultLandingPath(categories: Category[]): string {
-  return isGuardian(categories) ? "/schedule" : "/dashboard";
+  return isGuardian(categories) ? "/schedule" : "/messages";
 }
 
 export function categoriesIncludePlayer(categories: Category[]): boolean {
