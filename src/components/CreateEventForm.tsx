@@ -24,14 +24,25 @@ export default function CreateEventForm() {
         />
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700">日時</label>
-        <input
-          name="startAt"
-          type="datetime-local"
-          required
-          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-        />
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">日付</label>
+          <input
+            name="startDate"
+            type="date"
+            required
+            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">時刻</label>
+          <input
+            name="startTime"
+            type="time"
+            required
+            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          />
+        </div>
       </div>
 
       <div>

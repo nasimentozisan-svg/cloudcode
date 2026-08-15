@@ -27,7 +27,8 @@ export async function createEventAction(
 
   const parsed = createEventSchema.safeParse({
     title: formData.get("title"),
-    startAt: formData.get("startAt"),
+    startDate: formData.get("startDate"),
+    startTime: formData.get("startTime"),
     location: formData.get("location"),
     notes: formData.get("notes"),
     categories: formData.getAll("categories"),
@@ -37,8 +38,8 @@ export async function createEventAction(
     return { error: parsed.error.issues[0]?.message ?? "入力内容を確認してください" };
   }
 
-  const { title, startAt, location, notes, categories } = parsed.data;
-  const startAtDate = parseJSTDatetimeLocal(startAt);
+  const { title, startDate, startTime, location, notes, categories } = parsed.data;
+  const startAtDate = parseJSTDatetimeLocal(`${startDate}T${startTime}`);
   if (!startAtDate) {
     return { error: "日時の形式が正しくありません" };
   }
@@ -105,7 +106,8 @@ export async function updateEventAction(
 
   const parsed = createEventSchema.safeParse({
     title: formData.get("title"),
-    startAt: formData.get("startAt"),
+    startDate: formData.get("startDate"),
+    startTime: formData.get("startTime"),
     location: formData.get("location"),
     notes: formData.get("notes"),
     categories: formData.getAll("categories"),
@@ -115,8 +117,8 @@ export async function updateEventAction(
     return { error: parsed.error.issues[0]?.message ?? "入力内容を確認してください" };
   }
 
-  const { title, startAt, location, notes, categories } = parsed.data;
-  const startAtDate = parseJSTDatetimeLocal(startAt);
+  const { title, startDate, startTime, location, notes, categories } = parsed.data;
+  const startAtDate = parseJSTDatetimeLocal(`${startDate}T${startTime}`);
   if (!startAtDate) {
     return { error: "日時の形式が正しくありません" };
   }

@@ -24,6 +24,7 @@ export default function EditEventForm({
   initialCategories: Category[];
 }) {
   const [state, formAction] = useActionState(updateEventAction, initialState);
+  const [initialStartDate, initialStartTime] = initialStartAt.split("T");
 
   return (
     <form action={formAction} className="space-y-4">
@@ -42,15 +43,27 @@ export default function EditEventForm({
         />
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700">日時</label>
-        <input
-          name="startAt"
-          type="datetime-local"
-          required
-          defaultValue={initialStartAt}
-          className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-        />
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">日付</label>
+          <input
+            name="startDate"
+            type="date"
+            required
+            defaultValue={initialStartDate}
+            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">時刻</label>
+          <input
+            name="startTime"
+            type="time"
+            required
+            defaultValue={initialStartTime}
+            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          />
+        </div>
       </div>
 
       <div>

@@ -60,7 +60,8 @@ export const loginSchema = z.object({
 
 export const createEventSchema = z.object({
   title: z.string().trim().min(1, "タイトルを入力してください").max(100),
-  startAt: z.string().min(1, "日時を入力してください"),
+  startDate: z.string().min(1, "日付を入力してください"),
+  startTime: z.string().min(1, "時刻を入力してください"),
   location: z
     .string()
     .trim()
