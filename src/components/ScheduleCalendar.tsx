@@ -75,7 +75,7 @@ export default function ScheduleCalendar({
 
   return (
     <div
-      className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+      className="touch-pan-y rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
