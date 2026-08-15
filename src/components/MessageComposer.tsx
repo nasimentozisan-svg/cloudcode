@@ -110,12 +110,6 @@ export default function MessageComposer({
           ref={textareaRef}
           value={body}
           onChange={handleChange}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey && !mention) {
-              e.preventDefault();
-              handleSubmit();
-            }
-          }}
           rows={2}
           placeholder="メッセージを入力（@で通知したい相手を指定）"
           className="flex-1 resize-none rounded-md border border-gray-300 px-3 py-2 text-sm"
