@@ -1,16 +1,19 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { createUserByAdminAction } from "@/lib/actions/admin";
 import type { ActionState } from "@/lib/actions/auth";
 import CategoryCheckboxGroup from "@/components/CategoryCheckboxGroup";
 import WearSizeFields from "@/components/WearSizeFields";
 import SubmitButton from "@/components/SubmitButton";
+import type { Category } from "@/generated/prisma/client";
 
 const initialState: ActionState = {};
 
 export default function AdminCreateUserForm() {
   const [state, formAction] = useActionState(createUserByAdminAction, initialState);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const isGuardian = categories.includes("GUARDIAN");
 
   return (
     <form action={formAction} className="grid gap-3 sm:grid-cols-2">
@@ -31,8 +34,24 @@ export default function AdminCreateUserForm() {
 
       <div className="sm:col-span-2">
         <p className="mb-1 text-sm text-gray-500">カテゴリー（複数選択可）</p>
-        <CategoryCheckboxGroup />
+        <CategoryCheckboxGroup
+          onChange={(c, checked) =>
+            setCategories((prev) => (checked ? [...prev, c] : prev.filter((x) => x !== c)))
+          }
+        />
       </div>
+
+      {isGuardian && (
+        <div className="sm:col-span-2">
+          <p className="mb-1 text-sm text-gray-500">
+            お子さんの所属カテゴリー（複数選択可・カレンダーの色分け表示に使用）
+          </p>
+          <CategoryCheckboxGroup
+            name="guardianChildCategories"
+            exclude={["TOP_COACH", "SATELLITE_COACH", "U18_COACH", "GUARDIAN"]}
+          />
+        </div>
+      )}
 
       <div className="sm:col-span-2">
         <p className="mb-1 text-sm text-gray-500">ウェアサイズ（大人男性用・任意）</p>

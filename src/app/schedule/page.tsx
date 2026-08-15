@@ -58,7 +58,10 @@ export default async function SchedulePage({
     .sort((a, b) => b.startAt.getTime() - a.startAt.getTime())
     .slice(0, 10);
 
-  const userGroups = categoryGroups(userCategories);
+  // Color priority also considers a guardian's chosen child categories (but
+  // NOT eligibility/response permissions - those stay purely based on the
+  // viewer's own categories, computed separately above).
+  const userGroups = categoryGroups([...userCategories, ...user.guardianChildCategories]);
 
   const listCtx = {
     currentUserId: user.id,
@@ -89,6 +92,14 @@ export default async function SchedulePage({
     });
 
   const todayKey = `${nowParts.year}-${pad(nowParts.month)}-${pad(nowParts.day)}`;
+
+  // Marks every event shown on this page as read - uses the readEventIds
+  // snapshot captured above, so this render still shows accurate NEW badges
+  // for anything that was unread up until now.
+  await prisma.eventRead.createMany({
+    data: events.map((e) => ({ userId: user.id, eventId: e.id })),
+    skipDuplicates: true,
+  });
 
   return (
     <AppShell user={user}>

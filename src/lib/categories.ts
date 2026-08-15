@@ -16,6 +16,16 @@ export function isPlayerCategory(category: Category): boolean {
   return !category.endsWith("_COACH");
 }
 
+export function isGuardian(categories: Category[]): boolean {
+  return categories.includes("GUARDIAN");
+}
+
+// Guardians land on the schedule (their main reason to open the app);
+// everyone else lands on the dashboard/mypage.
+export function defaultLandingPath(categories: Category[]): string {
+  return isGuardian(categories) ? "/schedule" : "/dashboard";
+}
+
 export function categoriesIncludePlayer(categories: Category[]): boolean {
   return categories.some(isPlayerCategory);
 }

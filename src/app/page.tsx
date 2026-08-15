@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { hasAdmin } from "@/lib/actions/setup";
 import { getCurrentUser } from "@/lib/current-user";
+import { defaultLandingPath } from "@/lib/categories";
 
 // Same reasoning as src/app/setup/page.tsx: hasAdmin() alone gives Next no
 // signal to treat this route as per-request, so pin it explicitly instead
@@ -13,5 +14,6 @@ export default async function Home() {
   }
 
   const user = await getCurrentUser();
-  redirect(user ? "/dashboard" : "/login");
+  if (!user) redirect("/login");
+  redirect(defaultLandingPath(user.categories.map((c) => c.category)));
 }

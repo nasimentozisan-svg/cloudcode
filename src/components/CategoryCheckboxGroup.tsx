@@ -5,10 +5,12 @@ export default function CategoryCheckboxGroup({
   name = "categories",
   defaultChecked = [],
   exclude = [],
+  onChange,
 }: {
   name?: string;
   defaultChecked?: Category[];
   exclude?: Category[];
+  onChange?: (category: Category, checked: boolean) => void;
 }) {
   const options = CATEGORY_OPTIONS.filter((c) => !exclude.includes(c));
   return (
@@ -20,6 +22,7 @@ export default function CategoryCheckboxGroup({
             name={name}
             value={c}
             defaultChecked={defaultChecked.includes(c)}
+            onChange={onChange ? (e) => onChange(c, e.target.checked) : undefined}
           />
           {CATEGORY_LABELS[c]}
         </label>

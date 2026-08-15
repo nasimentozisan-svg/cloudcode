@@ -19,6 +19,7 @@ export async function createUserByAdminAction(
     email: formData.get("email"),
     password: formData.get("password"),
     categories: formData.getAll("categories"),
+    guardianChildCategories: formData.getAll("guardianChildCategories"),
     uniformNumber: formData.get("uniformNumber"),
     shirtSize: formData.get("shirtSize"),
     pantsSize: formData.get("pantsSize"),
@@ -29,8 +30,17 @@ export async function createUserByAdminAction(
     return { error: parsed.error.issues[0]?.message ?? "入力内容を確認してください" };
   }
 
-  const { name, email, password, categories, uniformNumber, shirtSize, pantsSize, jerseySize } =
-    parsed.data;
+  const {
+    name,
+    email,
+    password,
+    categories,
+    guardianChildCategories,
+    uniformNumber,
+    shirtSize,
+    pantsSize,
+    jerseySize,
+  } = parsed.data;
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
@@ -48,6 +58,7 @@ export async function createUserByAdminAction(
       shirtSize: shirtSize ?? null,
       pantsSize: pantsSize ?? null,
       jerseySize: jerseySize ?? null,
+      guardianChildCategories: guardianChildCategories as Category[],
       categories: {
         create: (categories as Category[]).map((category) => ({ category })),
       },

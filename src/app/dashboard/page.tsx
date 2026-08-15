@@ -4,12 +4,13 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import AppShell from "@/components/AppShell";
-import { formatCategories } from "@/lib/categories";
+import { formatCategories, isGuardian } from "@/lib/categories";
 import { canAccessChannel, ensureDefaultChannels } from "@/lib/channels";
 import { getUnreadChannelIds, getReadEventIds } from "@/lib/unread";
 import { formatJST } from "@/lib/datetime";
 import { EXTERNAL_APPS } from "@/lib/external-apps";
 import SizeEditForm from "@/components/SizeEditForm";
+import ProfileEditForm from "@/components/ProfileEditForm";
 import EmailNotificationToggle from "@/components/EmailNotificationToggle";
 import PushNotificationToggle from "@/components/PushNotificationToggle";
 import LineLinkSection from "@/components/LineLinkSection";
@@ -48,16 +49,21 @@ export default async function DashboardPage() {
     getReadEventIds(user.id),
   ]);
   const attendanceRate = calculateAttendanceRate(user.id, userCategories, pastEvents);
+  const guardian = isGuardian(userCategories);
 
-  await ensureDefaultChannels();
-  const [allChannels, unreadChannelIds] = await Promise.all([
-    prisma.channel.findMany({
-      include: { categories: true, _count: { select: { messages: true } } },
-      orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
-    }),
-    getUnreadChannelIds(user),
-  ]);
-  const channels = allChannels.filter((c) => canAccessChannel(user, c));
+  const [channels, unreadChannelIds] = guardian
+    ? [[], new Set<string>()]
+    : await (async () => {
+        await ensureDefaultChannels();
+        const [allChannels, unread] = await Promise.all([
+          prisma.channel.findMany({
+            include: { categories: true, _count: { select: { messages: true } } },
+            orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+          }),
+          getUnreadChannelIds(user),
+        ]);
+        return [allChannels.filter((c) => canAccessChannel(user, c)), unread] as const;
+      })();
 
   return (
     <AppShell user={user}>
@@ -80,25 +86,30 @@ export default async function DashboardPage() {
         )}
         <div className="flex-1">
           <h2 className="text-lg font-bold text-gray-900">マイプロフィール</h2>
-          <dl className="mt-4 grid grid-cols-2 gap-y-2 text-sm sm:grid-cols-4">
-            <dt className="text-gray-500">名前</dt>
-            <dd className="col-span-1 sm:col-span-3">{user.name}</dd>
+          <div className="mt-4">
+            <ProfileEditForm
+              name={user.name}
+              email={user.email}
+              uniformNumber={user.uniformNumber}
+              isGuardian={guardian}
+              guardianChildCategories={user.guardianChildCategories}
+            />
+          </div>
+          <dl className="mt-3 grid grid-cols-2 gap-y-2 text-sm sm:grid-cols-4">
             <dt className="text-gray-500">カテゴリー</dt>
             <dd className="col-span-1 sm:col-span-3">
               {formatCategories(user.categories.map((c) => c.category))}
             </dd>
-            <dt className="text-gray-500">背番号</dt>
-            <dd className="col-span-1 sm:col-span-3">
-              {user.uniformNumber ?? "未設定"}
-            </dd>
-            <dt className="text-gray-500">メール</dt>
-            <dd className="col-span-1 sm:col-span-3">{user.email}</dd>
-            <dt className="text-gray-500">出席率</dt>
-            <dd className="col-span-1 sm:col-span-3">
-              {attendanceRate.rate !== null
-                ? `${attendanceRate.rate}%（${attendanceRate.attended}/${attendanceRate.eligible}）`
-                : "対象の過去の予定がありません"}
-            </dd>
+            {!guardian && (
+              <>
+                <dt className="text-gray-500">出席率</dt>
+                <dd className="col-span-1 sm:col-span-3">
+                  {attendanceRate.rate !== null
+                    ? `${attendanceRate.rate}%（${attendanceRate.attended}/${attendanceRate.eligible}）`
+                    : "対象の過去の予定がありません"}
+                </dd>
+              </>
+            )}
           </dl>
 
           <h3 className="mt-6 text-sm font-semibold text-gray-500">
@@ -177,29 +188,33 @@ export default async function DashboardPage() {
         )}
       </div>
 
-      <div className="mt-8 flex items-center justify-between">
-        <h2 className="text-lg font-bold text-gray-900">メッセージ</h2>
-        <Link href="/messages" className="text-sm text-emerald-600 hover:underline active:text-emerald-800">
-          すべて見る
-        </Link>
-      </div>
-      <div className="mt-4 grid gap-4 sm:grid-cols-3">
-        {channels.map((c) => (
-          <Link
-            key={c.id}
-            href={`/messages/${c.id}`}
-            className="relative rounded-xl border border-gray-200 bg-white p-5 transition-colors hover:bg-gray-50 active:bg-gray-100"
-          >
-            {unreadChannelIds.has(c.id) && (
-              <span className="absolute right-3 top-3 rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
-                NEW
-              </span>
-            )}
-            <h3 className="font-semibold text-gray-900"># {c.name}</h3>
-            <p className="mt-1 text-xs text-gray-400">{c._count.messages}件のメッセージ</p>
-          </Link>
-        ))}
-      </div>
+      {!guardian && (
+        <>
+          <div className="mt-8 flex items-center justify-between">
+            <h2 className="text-lg font-bold text-gray-900">メッセージ</h2>
+            <Link href="/messages" className="text-sm text-emerald-600 hover:underline active:text-emerald-800">
+              すべて見る
+            </Link>
+          </div>
+          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            {channels.map((c) => (
+              <Link
+                key={c.id}
+                href={`/messages/${c.id}`}
+                className="relative rounded-xl border border-gray-200 bg-white p-5 transition-colors hover:bg-gray-50 active:bg-gray-100"
+              >
+                {unreadChannelIds.has(c.id) && (
+                  <span className="absolute right-3 top-3 rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
+                    NEW
+                  </span>
+                )}
+                <h3 className="font-semibold text-gray-900"># {c.name}</h3>
+                <p className="mt-1 text-xs text-gray-400">{c._count.messages}件のメッセージ</p>
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
 
       {user.isAdmin && (
         <>

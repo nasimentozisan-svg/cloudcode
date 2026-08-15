@@ -19,6 +19,7 @@ export const registerSchema = z.object({
   categories: z
     .array(categoryEnum)
     .min(1, "カテゴリーを1つ以上選択してください"),
+  guardianChildCategories: z.array(categoryEnum).optional().default([]),
   uniformNumber: z
     .string()
     .nullable()
@@ -36,6 +37,20 @@ export const updateSizesSchema = z.object({
   shirtSize: uniformSizeField,
   pantsSize: uniformSizeField,
   jerseySize: uniformSizeField,
+});
+
+export const updateProfileSchema = z.object({
+  name: z.string().trim().min(1, "名前を入力してください").max(50),
+  email: z.string().trim().email("メールアドレスの形式が正しくありません"),
+  uniformNumber: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((v) => (v && v.length > 0 ? Number(v) : undefined))
+    .refine((v) => v === undefined || (Number.isInteger(v) && v >= 0 && v <= 999), {
+      message: "背番号は0〜999の数字で入力してください",
+    }),
+  guardianChildCategories: z.array(categoryEnum).optional().default([]),
 });
 
 export const loginSchema = z.object({

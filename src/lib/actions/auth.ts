@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { createSession, destroySession } from "@/lib/session";
 import { registerSchema, loginSchema } from "@/lib/validation";
+import { defaultLandingPath } from "@/lib/categories";
 import type { Category } from "@/generated/prisma/client";
 
 export type ActionState = { error?: string };
@@ -18,6 +19,7 @@ export async function registerAction(
     email: formData.get("email"),
     password: formData.get("password"),
     categories: formData.getAll("categories"),
+    guardianChildCategories: formData.getAll("guardianChildCategories"),
     uniformNumber: formData.get("uniformNumber"),
     shirtSize: formData.get("shirtSize"),
     pantsSize: formData.get("pantsSize"),
@@ -28,8 +30,17 @@ export async function registerAction(
     return { error: parsed.error.issues[0]?.message ?? "入力内容を確認してください" };
   }
 
-  const { name, email, password, categories, uniformNumber, shirtSize, pantsSize, jerseySize } =
-    parsed.data;
+  const {
+    name,
+    email,
+    password,
+    categories,
+    guardianChildCategories,
+    uniformNumber,
+    shirtSize,
+    pantsSize,
+    jerseySize,
+  } = parsed.data;
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
@@ -47,6 +58,7 @@ export async function registerAction(
       shirtSize: shirtSize ?? null,
       pantsSize: pantsSize ?? null,
       jerseySize: jerseySize ?? null,
+      guardianChildCategories: guardianChildCategories as Category[],
       categories: {
         create: (categories as Category[]).map((category) => ({ category })),
       },
@@ -54,7 +66,7 @@ export async function registerAction(
   });
 
   await createSession(user.id);
-  redirect("/dashboard");
+  redirect(defaultLandingPath(categories as Category[]));
 }
 
 export async function loginAction(
@@ -71,7 +83,10 @@ export async function loginAction(
   }
 
   const { email, password } = parsed.data;
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await prisma.user.findUnique({
+    where: { email },
+    include: { categories: true },
+  });
   if (!user) {
     return { error: "メールアドレスまたはパスワードが違います" };
   }
@@ -82,7 +97,7 @@ export async function loginAction(
   }
 
   await createSession(user.id);
-  redirect("/dashboard");
+  redirect(defaultLandingPath(user.categories.map((c) => c.category)));
 }
 
 export async function logoutAction() {

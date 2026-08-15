@@ -1,33 +1,25 @@
 import Image from "next/image";
 import Link from "next/link";
 import { logoutAction } from "@/lib/actions/auth";
-import { formatCategories } from "@/lib/categories";
+import { formatCategories, isGuardian } from "@/lib/categories";
 import { prisma } from "@/lib/prisma";
 import { canRespondToEvent } from "@/lib/schedule-permissions";
-import { getUnreadChannelIds, getReadEventIds } from "@/lib/unread";
+import { getUnreadChannelIds } from "@/lib/unread";
 import NavLinks, { type NavItem } from "@/components/NavLinks";
 import type { User, UserCategory } from "@/generated/prisma/client";
 
-// The nav dot means "something to look at": either an event you're eligible
-// to answer but haven't, or one you're eligible for but haven't opened yet.
-// Scoped to events relevant to the viewer's own categories only - otherwise
-// the dot would stay lit forever over other categories' matches nobody in
-// this category ever opens.
+// The nav dot means "you still owe a response": lit while any upcoming
+// event in your own categories has no attendance answer from you yet, and
+// clears the moment every one of them is answered.
 async function hasScheduleUpdate(user: User & { categories: UserCategory[] }): Promise<boolean> {
-  const [upcomingEvents, readEventIds] = await Promise.all([
-    prisma.event.findMany({
-      where: { startAt: { gte: new Date() } },
-      include: { categories: true, responses: { where: { userId: user.id } } },
-    }),
-    getReadEventIds(user.id),
-  ]);
+  const upcomingEvents = await prisma.event.findMany({
+    where: { startAt: { gte: new Date() } },
+    include: { categories: true, responses: { where: { userId: user.id } } },
+  });
   const userCategories = user.categories.map((c) => c.category);
   return upcomingEvents.some((ev) => {
     const eligible = canRespondToEvent(userCategories, ev.categories.map((c) => c.category));
-    if (!eligible) return false;
-    const unanswered = ev.responses.length === 0;
-    const isNew = !readEventIds.has(ev.id);
-    return unanswered || isNew;
+    return eligible && ev.responses.length === 0;
   });
 }
 
@@ -38,16 +30,18 @@ export default async function AppShell({
   user: User & { categories: UserCategory[] };
   children: React.ReactNode;
 }) {
+  const guardian = isGuardian(user.categories.map((c) => c.category));
+
   const [scheduleBadge, unreadChannelIds] = await Promise.all([
     hasScheduleUpdate(user),
-    getUnreadChannelIds(user),
+    guardian ? Promise.resolve(new Set<string>()) : getUnreadChannelIds(user),
   ]);
   const messagesBadge = unreadChannelIds.size > 0;
 
   const navItems: NavItem[] = [
     { href: "/dashboard", label: "ホーム" },
     { href: "/schedule", label: "スケジュール", hasBadge: scheduleBadge },
-    { href: "/messages", label: "メッセージ", hasBadge: messagesBadge },
+    ...(guardian ? [] : [{ href: "/messages", label: "メッセージ", hasBadge: messagesBadge }]),
     ...(user.isAdmin
       ? [
           { href: "/admin", label: "管理者" },

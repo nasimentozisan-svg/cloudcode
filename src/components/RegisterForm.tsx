@@ -1,16 +1,19 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { registerAction, type ActionState } from "@/lib/actions/auth";
 import CategoryCheckboxGroup from "@/components/CategoryCheckboxGroup";
 import WearSizeFields from "@/components/WearSizeFields";
 import SubmitButton from "@/components/SubmitButton";
+import type { Category } from "@/generated/prisma/client";
 
 const initialState: ActionState = {};
 
 export default function RegisterForm() {
   const [state, formAction] = useActionState(registerAction, initialState);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const isGuardian = categories.includes("GUARDIAN");
 
   return (
     <form action={formAction} className="space-y-4">
@@ -29,9 +32,30 @@ export default function RegisterForm() {
           カテゴリー（複数選択可）
         </label>
         <div className="mt-1">
-          <CategoryCheckboxGroup />
+          <CategoryCheckboxGroup
+            onChange={(c, checked) =>
+              setCategories((prev) => (checked ? [...prev, c] : prev.filter((x) => x !== c)))
+            }
+          />
         </div>
       </div>
+
+      {isGuardian && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            お子さんの所属カテゴリー（複数選択可）
+          </label>
+          <p className="mt-0.5 text-xs text-gray-500">
+            出欠の回答には使いません。カレンダーの予定の色分け表示を、お子さんのカテゴリー優先にするために使います。
+          </p>
+          <div className="mt-1">
+            <CategoryCheckboxGroup
+              name="guardianChildCategories"
+              exclude={["TOP_COACH", "SATELLITE_COACH", "U18_COACH", "GUARDIAN"]}
+            />
+          </div>
+        </div>
+      )}
 
       <div>
         <label className="block text-sm font-medium text-gray-700">

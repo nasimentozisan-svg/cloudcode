@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/current-user";
 import { canAccessChannel } from "@/lib/channels";
+import { isGuardian } from "@/lib/categories";
 import { createChannelSchema, messageBodySchema } from "@/lib/validation";
 import { escapeHtml } from "@/lib/email";
 import { notifyRecipients } from "@/lib/notify";
@@ -25,6 +26,9 @@ export async function createChannelAction(
 ): Promise<ActionState> {
   const user = await getCurrentUser();
   if (!user) return { error: "ログインが必要です" };
+  if (isGuardian(user.categories.map((c) => c.category))) {
+    return { error: "保護者アカウントはメッセージ機能を利用できません" };
+  }
 
   const parsed = createChannelSchema.safeParse({
     name: formData.get("name"),
@@ -63,6 +67,9 @@ export async function createChannelAction(
 export async function postMessageAction(channelId: string, body: string) {
   const user = await getCurrentUser();
   if (!user) throw new Error("ログインが必要です");
+  if (isGuardian(user.categories.map((c) => c.category))) {
+    throw new Error("保護者アカウントはメッセージ機能を利用できません");
+  }
 
   const parsed = messageBodySchema.safeParse(body);
   if (!parsed.success) {
