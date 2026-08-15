@@ -1,4 +1,8 @@
+"use client";
+
+import { useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { CATEGORY_GROUP_COLORS, type CategoryGroup } from "@/lib/categories";
 
 export type CalendarEvent = {
@@ -49,8 +53,32 @@ export default function ScheduleCalendar({
   const prevHref = `/schedule?month=${prevMonthDate.getFullYear()}-${pad(prevMonthDate.getMonth() + 1)}`;
   const nextHref = `/schedule?month=${nextMonthDate.getFullYear()}-${pad(nextMonthDate.getMonth() + 1)}`;
 
+  const router = useRouter();
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+
+  function handleTouchStart(e: React.TouchEvent) {
+    const t = e.touches[0];
+    touchStart.current = { x: t.clientX, y: t.clientY };
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    const start = touchStart.current;
+    touchStart.current = null;
+    if (!start) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    const SWIPE_THRESHOLD = 50;
+    if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dx) < Math.abs(dy)) return;
+    router.push(dx < 0 ? nextHref : prevHref);
+  }
+
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div
+      className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       <div className="flex items-center justify-between">
         <Link
           href={prevHref}
@@ -81,14 +109,20 @@ export default function ScheduleCalendar({
           const key = day ? `${year}-${pad(month)}-${pad(day)}` : `blank-${i}`;
           const isToday = day !== null && key === todayKey;
           const dayEvents = day ? (eventsByDay.get(day) ?? []) : [];
+          const weekday = i % 7; // 0=Sun ... 6=Sat, matches WEEKDAY_LABELS order
+          const numberColor = isToday
+            ? "bg-emerald-600 font-bold text-white"
+            : weekday === 0
+              ? "text-red-500"
+              : weekday === 6
+                ? "text-blue-500"
+                : "text-gray-600";
           return (
             <div key={key} className="min-h-[80px] bg-white p-1">
               {day !== null && (
                 <>
                   <span
-                    className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-xs ${
-                      isToday ? "bg-emerald-600 font-bold text-white" : "text-gray-600"
-                    }`}
+                    className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-xs ${numberColor}`}
                   >
                     {day}
                   </span>
