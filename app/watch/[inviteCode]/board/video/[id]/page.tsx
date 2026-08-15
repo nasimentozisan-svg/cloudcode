@@ -36,7 +36,7 @@ export default async function WatchVideoPage({
   return (
     <div className="mx-auto w-full max-w-2xl flex-1 px-4 py-8">
       <Link
-        href={`/watch/${inviteCode}/${video.category}`}
+        href={`/watch/${inviteCode}/board/${video.category}`}
         className="text-sm text-slate-500 underline"
       >
         ← {category ? CATEGORY_LABELS[category] : "一覧"}に戻る

@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { CATEGORY_LABELS, VIDEO_CATEGORIES, type VideoCategory } from "@/lib/categories";
 import UploadForm from "./UploadForm";
-import SignOutButton from "./SignOutButton";
 import DeleteVideoButton from "./DeleteVideoButton";
 
 export default async function CoachDashboardPage() {
@@ -18,7 +17,7 @@ export default async function CoachDashboardPage() {
 
   const { data: team } = await supabase
     .from("teams")
-    .select("id, name, invite_code")
+    .select("id, invite_code")
     .eq("owner_user_id", user.id)
     .single();
 
@@ -41,18 +40,7 @@ export default async function CoachDashboardPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">
-      <div className="mb-6 flex items-start justify-between">
-        <div>
-          <h1 className="text-xl font-bold">{team.name}</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            選手への招待コード：
-            <span className="font-mono font-semibold">{team.invite_code}</span>
-          </p>
-        </div>
-        <SignOutButton />
-      </div>
-
+    <div>
       <div className="mb-8">
         <UploadForm teamId={team.id} />
       </div>
@@ -75,7 +63,7 @@ export default async function CoachDashboardPage() {
                       className="flex items-start gap-3 rounded-md border border-slate-200 bg-white p-3"
                     >
                       <Link
-                        href={`/watch/${team.invite_code}/video/${v.id}`}
+                        href={`/watch/${team.invite_code}/board/video/${v.id}`}
                         className="min-w-0 flex-1 hover:opacity-70"
                       >
                         <p className="font-medium">{v.title}</p>

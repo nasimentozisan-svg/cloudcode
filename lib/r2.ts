@@ -3,6 +3,7 @@ import {
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
+  DeleteObjectsCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
@@ -42,5 +43,16 @@ export async function deleteObject(key: string) {
   const client = createR2Client();
   await client.send(
     new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: key })
+  );
+}
+
+export async function deleteObjects(keys: string[]) {
+  if (keys.length === 0) return;
+  const client = createR2Client();
+  await client.send(
+    new DeleteObjectsCommand({
+      Bucket: R2_BUCKET_NAME,
+      Delete: { Objects: keys.map((Key) => ({ Key })) },
+    })
   );
 }

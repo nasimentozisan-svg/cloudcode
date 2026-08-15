@@ -19,3 +19,16 @@ export const CATEGORY_LABELS: Record<VideoCategory, string> = {
 export function isVideoCategory(value: string): value is VideoCategory {
   return (VIDEO_CATEGORIES as readonly string[]).includes(value);
 }
+
+export const TEAM_CATEGORIES = ["top", "u18"] as const;
+
+export type TeamCategory = (typeof TEAM_CATEGORIES)[number];
+
+export const TEAM_CATEGORY_LABELS: Record<TeamCategory, string> = {
+  top: "TOP",
+  u18: "U18",
+};
+
+export function isTeamCategory(value: string): value is TeamCategory {
+  return (TEAM_CATEGORIES as readonly string[]).includes(value);
+}

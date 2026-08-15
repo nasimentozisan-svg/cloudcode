@@ -31,7 +31,7 @@ export default async function CategoryVideosPage({
 
   return (
     <div className="mx-auto w-full max-w-2xl flex-1 px-4 py-8">
-      <Link href={`/watch/${inviteCode}`} className="text-sm text-slate-500 underline">
+      <Link href={`/watch/${inviteCode}/board`} className="text-sm text-slate-500 underline">
         ← フォルダ一覧に戻る
       </Link>
       <h1 className="mt-2 mb-6 text-xl font-bold">{CATEGORY_LABELS[category]}</h1>
@@ -43,7 +43,7 @@ export default async function CategoryVideosPage({
           {videos.map((v) => (
             <li key={v.id}>
               <Link
-                href={`/watch/${inviteCode}/video/${v.id}`}
+                href={`/watch/${inviteCode}/board/video/${v.id}`}
                 className="block rounded-lg border border-slate-200 bg-white px-4 py-4 hover:bg-slate-50"
               >
                 <p className="font-medium">{v.title}</p>
