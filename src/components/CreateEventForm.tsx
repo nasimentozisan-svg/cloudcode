@@ -31,6 +31,7 @@ export default function CreateEventForm() {
             name="startDate"
             type="date"
             required
+            onClick={(e) => e.currentTarget.showPicker?.()}
             className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
           />
         </div>
@@ -40,6 +41,7 @@ export default function CreateEventForm() {
             name="startTime"
             type="time"
             required
+            onClick={(e) => e.currentTarget.showPicker?.()}
             className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
           />
         </div>

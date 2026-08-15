@@ -51,6 +51,7 @@ export default function EditEventForm({
             type="date"
             required
             defaultValue={initialStartDate}
+            onClick={(e) => e.currentTarget.showPicker?.()}
             className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
           />
         </div>
@@ -61,6 +62,7 @@ export default function EditEventForm({
             type="time"
             required
             defaultValue={initialStartTime}
+            onClick={(e) => e.currentTarget.showPicker?.()}
             className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
           />
         </div>
