@@ -8,8 +8,11 @@ import { getUnreadChannelIds, getReadEventIds } from "@/lib/unread";
 import NavLinks, { type NavItem } from "@/components/NavLinks";
 import type { User, UserCategory } from "@/generated/prisma/client";
 
-// The nav dot means "something to look at": either an event you haven't
-// answered yet, or one you haven't opened at all yet.
+// The nav dot means "something to look at": either an event you're eligible
+// to answer but haven't, or one you're eligible for but haven't opened yet.
+// Scoped to events relevant to the viewer's own categories only - otherwise
+// the dot would stay lit forever over other categories' matches nobody in
+// this category ever opens.
 async function hasScheduleUpdate(user: User & { categories: UserCategory[] }): Promise<boolean> {
   const [upcomingEvents, readEventIds] = await Promise.all([
     prisma.event.findMany({
@@ -21,7 +24,8 @@ async function hasScheduleUpdate(user: User & { categories: UserCategory[] }): P
   const userCategories = user.categories.map((c) => c.category);
   return upcomingEvents.some((ev) => {
     const eligible = canRespondToEvent(userCategories, ev.categories.map((c) => c.category));
-    const unanswered = eligible && ev.responses.length === 0;
+    if (!eligible) return false;
+    const unanswered = ev.responses.length === 0;
     const isNew = !readEventIds.has(ev.id);
     return unanswered || isNew;
   });

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import { canManageSchedule, canRespondToEvent } from "@/lib/schedule-permissions";
-import { categoryGroups } from "@/lib/categories";
+import { categoryGroups, sortGroupsForViewer } from "@/lib/categories";
 import { buildEventForList } from "@/lib/schedule-view";
 import { getReadEventIds } from "@/lib/unread";
 import { getJSTDateParts } from "@/lib/datetime";
@@ -58,6 +58,8 @@ export default async function SchedulePage({
     .sort((a, b) => b.startAt.getTime() - a.startAt.getTime())
     .slice(0, 10);
 
+  const userGroups = categoryGroups(userCategories);
+
   const listCtx = {
     currentUserId: user.id,
     currentUserIsAdmin: user.isAdmin,
@@ -80,7 +82,7 @@ export default async function SchedulePage({
         id: ev.id,
         title: ev.title,
         day: getJSTDateParts(ev.startAt).day,
-        groups: categoryGroups(eventCategories),
+        groups: sortGroupsForViewer(categoryGroups(eventCategories), userGroups),
         needsResponse: eligible && ev.startAt >= now && myResponse === null,
         isNew: !readEventIds.has(ev.id),
       };

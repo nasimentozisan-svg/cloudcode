@@ -50,6 +50,20 @@ export function categoryGroups(categories: Category[]): CategoryGroup[] {
   return CATEGORY_GROUPS.filter((g) => present.has(g));
 }
 
+// Reorders an event's category groups so whichever one(s) the viewer
+// actually belongs to come first - used by the calendar to pick the chip's
+// background color, so e.g. a Satellite player sees a Satellite/Top event
+// shown in Satellite (their own) color with Top as the secondary dot,
+// rather than always defaulting to Top regardless of who's looking.
+export function sortGroupsForViewer(
+  groups: CategoryGroup[],
+  viewerGroups: CategoryGroup[]
+): CategoryGroup[] {
+  const mine = groups.filter((g) => viewerGroups.includes(g));
+  const others = groups.filter((g) => !viewerGroups.includes(g));
+  return [...mine, ...others];
+}
+
 // Color coding shared by the schedule calendar and event cards, keyed by
 // category group (not the finer-grained player/coach category) so a single
 // event that targets e.g. TOP_PLAYER + TOP_COACH shows one consistent color.
