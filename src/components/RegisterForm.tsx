@@ -51,7 +51,7 @@ export default function RegisterForm() {
           <div className="mt-1">
             <CategoryCheckboxGroup
               name="guardianChildCategories"
-              exclude={["TOP_COACH", "SATELLITE_COACH", "U18_COACH", "GUARDIAN"]}
+              exclude={["TOP_COACH", "SATELLITE_COACH", "U18_COACH", "GUARDIAN", "SUPPORTER"]}
             />
           </div>
         </div>

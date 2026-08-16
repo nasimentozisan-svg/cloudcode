@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { logoutAction } from "@/lib/actions/auth";
-import { formatCategories, isGuardian } from "@/lib/categories";
+import { formatCategories, isViewOnly } from "@/lib/categories";
 import { prisma } from "@/lib/prisma";
 import { canRespondToEvent } from "@/lib/schedule-permissions";
 import { getUnreadChannelIds } from "@/lib/unread";
@@ -30,18 +30,18 @@ export default async function AppShell({
   user: User & { categories: UserCategory[] };
   children: React.ReactNode;
 }) {
-  const guardian = isGuardian(user.categories.map((c) => c.category));
+  const viewOnly = isViewOnly(user.categories.map((c) => c.category));
 
   const [scheduleBadge, unreadChannelIds] = await Promise.all([
     hasScheduleUpdate(user),
-    guardian ? Promise.resolve(new Set<string>()) : getUnreadChannelIds(user),
+    viewOnly ? Promise.resolve(new Set<string>()) : getUnreadChannelIds(user),
   ]);
   const messagesBadge = unreadChannelIds.size > 0;
 
   const navItems: NavItem[] = [
     { href: "/dashboard", label: "ホーム" },
     { href: "/schedule", label: "スケジュール", hasBadge: scheduleBadge },
-    ...(guardian ? [] : [{ href: "/messages", label: "メッセージ", hasBadge: messagesBadge }]),
+    ...(viewOnly ? [] : [{ href: "/messages", label: "メッセージ", hasBadge: messagesBadge }]),
     ...(user.isAdmin
       ? [
           { href: "/admin", label: "管理者" },

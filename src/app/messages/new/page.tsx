@@ -1,13 +1,13 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/current-user";
-import { isGuardian } from "@/lib/categories";
+import { isViewOnly } from "@/lib/categories";
 import AppShell from "@/components/AppShell";
 import CreateChannelForm from "@/components/CreateChannelForm";
 
 export default async function NewChannelPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  if (isGuardian(user.categories.map((c) => c.category))) redirect("/schedule");
+  if (isViewOnly(user.categories.map((c) => c.category))) redirect("/schedule");
 
   return (
     <AppShell user={user}>

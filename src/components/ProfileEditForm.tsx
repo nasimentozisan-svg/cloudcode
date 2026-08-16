@@ -13,12 +13,14 @@ export default function ProfileEditForm({
   name,
   email,
   uniformNumber,
+  isViewOnly,
   isGuardian,
   guardianChildCategories,
 }: {
   name: string;
   email: string;
   uniformNumber: number | null;
+  isViewOnly: boolean;
   isGuardian: boolean;
   guardianChildCategories: Category[];
 }) {
@@ -38,7 +40,7 @@ export default function ProfileEditForm({
         <dd className="col-span-1 sm:col-span-3">{name}</dd>
         <dt className="text-gray-500">メール</dt>
         <dd className="col-span-1 sm:col-span-3">{email}</dd>
-        {!isGuardian && (
+        {!isViewOnly && (
           <>
             <dt className="text-gray-500">背番号</dt>
             <dd className="col-span-1 sm:col-span-3">{uniformNumber ?? "未設定"}</dd>
@@ -78,7 +80,7 @@ export default function ProfileEditForm({
           className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
         />
       </div>
-      {!isGuardian && (
+      {!isViewOnly && (
         <div>
           <label className="block text-xs text-gray-500">背番号（任意）</label>
           <input
@@ -100,7 +102,7 @@ export default function ProfileEditForm({
           <div className="mt-1">
             <CategoryCheckboxGroup
               name="guardianChildCategories"
-              exclude={["TOP_COACH", "SATELLITE_COACH", "U18_COACH", "GUARDIAN"]}
+              exclude={["TOP_COACH", "SATELLITE_COACH", "U18_COACH", "GUARDIAN", "SUPPORTER"]}
               defaultChecked={guardianChildCategories}
             />
           </div>

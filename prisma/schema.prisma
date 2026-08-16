@@ -20,6 +20,7 @@ enum Category {
   U18_PLAYER
   U18_COACH
   GUARDIAN
+  SUPPORTER
 }
 
 enum UniformSize {

@@ -8,6 +8,7 @@ export const CATEGORY_LABELS: Record<Category, string> = {
   U18_PLAYER: "U18(U15)選手",
   U18_COACH: "U18コーチ",
   GUARDIAN: "保護者",
+  SUPPORTER: "サポーター",
 };
 
 export const CATEGORY_OPTIONS = Object.keys(CATEGORY_LABELS) as Category[];
@@ -16,14 +17,16 @@ export function isPlayerCategory(category: Category): boolean {
   return !category.endsWith("_COACH");
 }
 
-export function isGuardian(categories: Category[]): boolean {
-  return categories.includes("GUARDIAN");
+// Guardians and supporters are schedule-view-only: no attendance response,
+// no messaging - same restrictions, just two different real-world roles.
+export function isViewOnly(categories: Category[]): boolean {
+  return categories.includes("GUARDIAN") || categories.includes("SUPPORTER");
 }
 
-// Guardians have no messaging feature, so they land on the schedule
-// instead; everyone else lands on messages.
+// View-only accounts have no messaging feature, so they land on the
+// schedule instead; everyone else lands on messages.
 export function defaultLandingPath(categories: Category[]): string {
-  return isGuardian(categories) ? "/schedule" : "/messages";
+  return isViewOnly(categories) ? "/schedule" : "/messages";
 }
 
 export function categoriesIncludePlayer(categories: Category[]): boolean {
@@ -51,7 +54,7 @@ export const CATEGORY_GROUP_LABELS: Record<CategoryGroup, string> = {
 export function categoryGroup(category: Category): CategoryGroup {
   if (category.startsWith("TOP")) return "TOP";
   if (category.startsWith("SATELLITE")) return "SATELLITE";
-  if (category === "GUARDIAN") return "GUARDIAN";
+  if (category === "GUARDIAN" || category === "SUPPORTER") return "GUARDIAN";
   return "U18";
 }
 

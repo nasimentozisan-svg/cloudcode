@@ -63,7 +63,7 @@ export default function CreateEventForm() {
           対象カテゴリー（複数選択可）
         </label>
         <div className="mt-1">
-          <CategoryCheckboxGroup exclude={["GUARDIAN"]} />
+          <CategoryCheckboxGroup exclude={["GUARDIAN", "SUPPORTER"]} />
         </div>
       </div>
 

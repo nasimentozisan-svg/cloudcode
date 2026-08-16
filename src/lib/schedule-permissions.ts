@@ -5,12 +5,14 @@ export function canManageSchedule(user: User & { categories: UserCategory[] }): 
   return user.categories.some((c) => c.category.endsWith("_COACH"));
 }
 
-// Guardians are view-only: even if an event happens to target GUARDIAN
-// (e.g. a coach explicitly adds it), they should never see attendance
-// response buttons for it.
+// Guardians and supporters are view-only: even if an event happens to
+// target GUARDIAN/SUPPORTER (e.g. a coach explicitly adds it), they should
+// never see attendance response buttons for it.
 export function canRespondToEvent(
   userCategories: Category[],
   eventCategories: Category[]
 ): boolean {
-  return userCategories.some((c) => c !== "GUARDIAN" && eventCategories.includes(c));
+  return userCategories.some(
+    (c) => c !== "GUARDIAN" && c !== "SUPPORTER" && eventCategories.includes(c)
+  );
 }

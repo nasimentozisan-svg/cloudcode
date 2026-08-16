@@ -48,7 +48,7 @@ export default function AdminCreateUserForm() {
           </p>
           <CategoryCheckboxGroup
             name="guardianChildCategories"
-            exclude={["TOP_COACH", "SATELLITE_COACH", "U18_COACH", "GUARDIAN"]}
+            exclude={["TOP_COACH", "SATELLITE_COACH", "U18_COACH", "GUARDIAN", "SUPPORTER"]}
           />
         </div>
       )}

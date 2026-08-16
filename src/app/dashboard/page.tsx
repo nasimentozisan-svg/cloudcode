@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import AppShell from "@/components/AppShell";
-import { formatCategories, isGuardian } from "@/lib/categories";
+import { formatCategories, isViewOnly } from "@/lib/categories";
 import { canAccessChannel, ensureDefaultChannels } from "@/lib/channels";
 import { getUnreadChannelIds, getReadEventIds } from "@/lib/unread";
 import { formatJST } from "@/lib/datetime";
@@ -49,9 +49,10 @@ export default async function DashboardPage() {
     getReadEventIds(user.id),
   ]);
   const attendanceRate = calculateAttendanceRate(user.id, userCategories, pastEvents);
-  const guardian = isGuardian(userCategories);
+  const viewOnly = isViewOnly(userCategories);
+  const isGuardianCategory = userCategories.includes("GUARDIAN");
 
-  const [channels, unreadChannelIds] = guardian
+  const [channels, unreadChannelIds] = viewOnly
     ? [[], new Set<string>()]
     : await (async () => {
         await ensureDefaultChannels();
@@ -91,7 +92,8 @@ export default async function DashboardPage() {
               name={user.name}
               email={user.email}
               uniformNumber={user.uniformNumber}
-              isGuardian={guardian}
+              isViewOnly={viewOnly}
+              isGuardian={isGuardianCategory}
               guardianChildCategories={user.guardianChildCategories}
             />
           </div>
@@ -100,7 +102,7 @@ export default async function DashboardPage() {
             <dd className="col-span-1 sm:col-span-3">
               {formatCategories(user.categories.map((c) => c.category))}
             </dd>
-            {!guardian && (
+            {!viewOnly && (
               <>
                 <dt className="text-gray-500">出席率</dt>
                 <dd className="col-span-1 sm:col-span-3">
@@ -188,7 +190,7 @@ export default async function DashboardPage() {
         )}
       </div>
 
-      {!guardian && (
+      {!viewOnly && (
         <>
           <div className="mt-8 flex items-center justify-between">
             <h2 className="text-lg font-bold text-gray-900">メッセージ</h2>

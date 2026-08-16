@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import { canAccessChannel, ensureDefaultChannels } from "@/lib/channels";
 import { formatJST } from "@/lib/datetime";
-import { isGuardian } from "@/lib/categories";
+import { isViewOnly } from "@/lib/categories";
 import AppShell from "@/components/AppShell";
 import MessageComposer from "@/components/MessageComposer";
 import MessageBody from "@/components/MessageBody";
@@ -20,7 +20,7 @@ export default async function ChannelPage({
   const { channelId } = await params;
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  if (isGuardian(user.categories.map((c) => c.category))) redirect("/schedule");
+  if (isViewOnly(user.categories.map((c) => c.category))) redirect("/schedule");
 
   await ensureDefaultChannels();
 

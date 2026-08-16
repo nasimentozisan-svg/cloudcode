@@ -17,7 +17,9 @@ export default function ScheduleImportForm() {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const categoryOptions = CATEGORY_OPTIONS.filter((c) => c !== "GUARDIAN");
+  const categoryOptions = CATEGORY_OPTIONS.filter(
+    (c) => c !== "GUARDIAN" && c !== "SUPPORTER"
+  );
   const hasErrors = parsed?.some((p) => p.error !== null) ?? false;
   const validCount = parsed?.filter((p) => p.error === null).length ?? 0;
 

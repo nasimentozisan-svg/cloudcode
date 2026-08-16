@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/current-user";
 import { updateSizesSchema, updateProfileSchema } from "@/lib/validation";
-import { isGuardian } from "@/lib/categories";
 import type { ActionState } from "@/lib/actions/auth";
 import type { Category } from "@/generated/prisma/client";
 
@@ -65,7 +64,7 @@ export async function updateProfileAction(
     return { error: "このメールアドレスは既に使われています" };
   }
 
-  const guardian = isGuardian(user.categories.map((c) => c.category));
+  const guardian = user.categories.some((c) => c.category === "GUARDIAN");
 
   await prisma.user.update({
     where: { id: user.id },

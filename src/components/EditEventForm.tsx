@@ -85,7 +85,10 @@ export default function EditEventForm({
           対象カテゴリー（複数選択可）
         </label>
         <div className="mt-1">
-          <CategoryCheckboxGroup exclude={["GUARDIAN"]} defaultChecked={initialCategories} />
+          <CategoryCheckboxGroup
+            exclude={["GUARDIAN", "SUPPORTER"]}
+            defaultChecked={initialCategories}
+          />
         </div>
       </div>
 

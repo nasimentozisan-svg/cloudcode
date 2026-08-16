@@ -21,7 +21,10 @@ export function calculateAttendanceRate(
 ): AttendanceRate {
   const eligibleEvents = pastEvents.filter((ev) =>
     ev.categories.some(
-      (c) => c.category !== "GUARDIAN" && userCategories.includes(c.category)
+      (c) =>
+        c.category !== "GUARDIAN" &&
+        c.category !== "SUPPORTER" &&
+        userCategories.includes(c.category)
     )
   );
   const attended = eligibleEvents.filter((ev) =>
