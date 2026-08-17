@@ -14,6 +14,7 @@ export default function AdminCreateUserForm() {
   const [state, formAction] = useActionState(createUserByAdminAction, initialState);
   const [categories, setCategories] = useState<Category[]>([]);
   const isGuardian = categories.includes("GUARDIAN");
+  const isSupporter = categories.includes("SUPPORTER");
 
   return (
     <form action={formAction} className="grid gap-3 sm:grid-cols-2">
@@ -41,10 +42,12 @@ export default function AdminCreateUserForm() {
         />
       </div>
 
-      {isGuardian && (
+      {(isGuardian || isSupporter) && (
         <div className="sm:col-span-2">
           <p className="mb-1 text-sm text-gray-500">
-            お子さんの所属カテゴリー（複数選択可・カレンダーの色分け表示に使用）
+            {isGuardian
+              ? "お子さんの所属カテゴリー（複数選択可・カレンダーの色分け表示や通知に使用）"
+              : "応援したいカテゴリー（複数選択可・カレンダーの色分け表示や通知に使用）"}
           </p>
           <CategoryCheckboxGroup
             name="guardianChildCategories"

@@ -64,7 +64,9 @@ export async function updateProfileAction(
     return { error: "このメールアドレスは既に使われています" };
   }
 
-  const guardian = user.categories.some((c) => c.category === "GUARDIAN");
+  const canPickWatchCategories = user.categories.some(
+    (c) => c.category === "GUARDIAN" || c.category === "SUPPORTER"
+  );
 
   await prisma.user.update({
     where: { id: user.id },
@@ -72,7 +74,9 @@ export async function updateProfileAction(
       name,
       email,
       uniformNumber: uniformNumber ?? null,
-      ...(guardian ? { guardianChildCategories: guardianChildCategories as Category[] } : {}),
+      ...(canPickWatchCategories
+        ? { guardianChildCategories: guardianChildCategories as Category[] }
+        : {}),
     },
   });
 

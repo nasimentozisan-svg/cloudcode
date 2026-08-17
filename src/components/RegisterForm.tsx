@@ -14,6 +14,7 @@ export default function RegisterForm() {
   const [state, formAction] = useActionState(registerAction, initialState);
   const [categories, setCategories] = useState<Category[]>([]);
   const isGuardian = categories.includes("GUARDIAN");
+  const isSupporter = categories.includes("SUPPORTER");
 
   return (
     <form action={formAction} className="space-y-4">
@@ -40,13 +41,13 @@ export default function RegisterForm() {
         </div>
       </div>
 
-      {isGuardian && (
+      {(isGuardian || isSupporter) && (
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            お子さんの所属カテゴリー（複数選択可）
+            {isGuardian ? "お子さんの所属カテゴリー（複数選択可）" : "応援したいカテゴリー（複数選択可）"}
           </label>
           <p className="mt-0.5 text-xs text-gray-500">
-            出欠の回答には使いません。カレンダーの予定の色分け表示を、お子さんのカテゴリー優先にするために使います。
+            出欠の回答には使いません。カレンダーの色分け表示と、新しい予定の通知に使用します。
           </p>
           <div className="mt-1">
             <CategoryCheckboxGroup

@@ -93,11 +93,13 @@ export default function ProfileEditForm({
           />
         </div>
       )}
-      {isGuardian && (
+      {isViewOnly && (
         <div>
-          <label className="block text-xs text-gray-500">お子さんの所属カテゴリー（複数選択可）</label>
+          <label className="block text-xs text-gray-500">
+            {isGuardian ? "お子さんの所属カテゴリー（複数選択可）" : "応援したいカテゴリー（複数選択可）"}
+          </label>
           <p className="mt-0.5 text-xs text-gray-400">
-            出欠の回答には使いません。カレンダーの色分け表示に使用します。
+            出欠の回答には使いません。カレンダーの色分け表示と、新しい予定の通知に使用します。
           </p>
           <div className="mt-1">
             <CategoryCheckboxGroup

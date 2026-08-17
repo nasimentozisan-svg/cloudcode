@@ -60,7 +60,10 @@ export async function createEventAction(
   const recipients = await prisma.user.findMany({
     where: {
       id: { not: user.id },
-      categories: { some: { category: { in: categories as Category[] } } },
+      OR: [
+        { categories: { some: { category: { in: categories as Category[] } } } },
+        { guardianChildCategories: { hasSome: categories as Category[] } },
+      ],
     },
     select: { id: true, email: true, receiveEmailNotifications: true },
   });
@@ -200,7 +203,10 @@ export async function bulkCreateEventsAction(
   const recipients = await prisma.user.findMany({
     where: {
       id: { not: user.id },
-      categories: { some: { category: { in: eventCategories } } },
+      OR: [
+        { categories: { some: { category: { in: eventCategories } } } },
+        { guardianChildCategories: { hasSome: eventCategories } },
+      ],
     },
     select: { id: true, email: true, receiveEmailNotifications: true },
   });
