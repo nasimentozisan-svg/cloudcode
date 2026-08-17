@@ -46,6 +46,13 @@ export default function AdminUserTable({
       ? users
       : users.filter((u) => u.categories.some((c) => c.category === filterCategory));
 
+  const categoryCounts = Object.fromEntries(
+    CATEGORY_OPTIONS.map((c) => [
+      c,
+      users.filter((u) => u.categories.some((uc) => uc.category === c)).length,
+    ])
+  ) as Record<Category, number>;
+
   return (
     <div>
       {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
@@ -73,7 +80,7 @@ export default function AdminUserTable({
                 : "border border-gray-300 text-gray-600 hover:bg-gray-50"
             }`}
           >
-            {CATEGORY_LABELS[c]}
+            {CATEGORY_LABELS[c]}（{categoryCounts[c]}）
           </button>
         ))}
       </div>

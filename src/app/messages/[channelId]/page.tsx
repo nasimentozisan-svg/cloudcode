@@ -56,6 +56,24 @@ export default async function ChannelPage({
     update: { lastReadAt: new Date() },
   });
 
+  // LINE-style read counts: since we only track each member's last visit
+  // (not per-message), a message counts as "read" by anyone whose last
+  // visit was at or after it was posted - cheap and good enough without a
+  // per-message-per-user read table.
+  const channelReads = await prisma.channelRead.findMany({
+    where: { channelId },
+    select: { userId: true, lastReadAt: true },
+  });
+  const memberIds = new Set(members.map((m) => m.id));
+  function readCountFor(message: (typeof messages)[number]): number {
+    return channelReads.filter(
+      (r) =>
+        r.userId !== message.authorId &&
+        memberIds.has(r.userId) &&
+        r.lastReadAt >= message.createdAt
+    ).length;
+  }
+
   return (
     <AppShell user={user}>
       <PollRefresh intervalMs={8000} />
@@ -94,6 +112,11 @@ export default async function ChannelPage({
                 )}
               </p>
               <MessageBody body={m.body} members={members} />
+              {readCountFor(m) > 0 && (
+                <p className="mt-0.5 text-right text-[10px] text-gray-400">
+                  既読{readCountFor(m)}
+                </p>
+              )}
             </div>
           ))}
         </div>
