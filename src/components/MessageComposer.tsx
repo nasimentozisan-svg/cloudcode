@@ -59,6 +59,24 @@ export default function MessageComposer({
     setMention({ query: "", start: caret });
   }
 
+  function toggleBold() {
+    const el = textareaRef.current;
+    if (!el) return;
+    const start = el.selectionStart ?? body.length;
+    const end = el.selectionEnd ?? body.length;
+    const selected = body.slice(start, end);
+    const next = `${body.slice(0, start)}**${selected}**${body.slice(end)}`;
+    setBody(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      if (selected.length > 0) {
+        el.setSelectionRange(start + 2, end + 2);
+      } else {
+        el.setSelectionRange(start + 2, start + 2);
+      }
+    });
+  }
+
   function handleSubmit() {
     if (body.trim().length === 0) return;
     setError(null);
@@ -105,6 +123,14 @@ export default function MessageComposer({
           aria-label="メンションを挿入"
         >
           @
+        </button>
+        <button
+          type="button"
+          onClick={toggleBold}
+          className="shrink-0 rounded-md border border-gray-300 px-3 py-2 text-sm font-bold text-gray-600 hover:bg-gray-50"
+          aria-label="太字"
+        >
+          B
         </button>
         <textarea
           ref={textareaRef}

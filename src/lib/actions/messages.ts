@@ -10,6 +10,7 @@ import { createChannelSchema, messageBodySchema } from "@/lib/validation";
 import { escapeHtml } from "@/lib/email";
 import { notifyRecipients } from "@/lib/notify";
 import { findMentions } from "@/lib/mentions";
+import { REACTION_EMOJIS, type ReactionEmoji } from "@/lib/reactions";
 import type { Category } from "@/generated/prisma/client";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
@@ -145,6 +146,37 @@ export async function deleteMessageAction(messageId: string) {
   }
 
   await prisma.message.delete({ where: { id: messageId } });
+  revalidatePath(`/messages/${message.channelId}`);
+}
+
+export async function toggleReactionAction(messageId: string, emoji: string) {
+  const user = await getCurrentUser();
+  if (!user) throw new Error("ログインが必要です");
+  if (isViewOnly(user.categories.map((c) => c.category))) {
+    throw new Error("この種類のアカウントはメッセージ機能を利用できません");
+  }
+  if (!REACTION_EMOJIS.includes(emoji as ReactionEmoji)) {
+    throw new Error("使用できないリアクションです");
+  }
+
+  const message = await prisma.message.findUnique({
+    where: { id: messageId },
+    include: { channel: { include: { categories: true } } },
+  });
+  if (!message) throw new Error("メッセージが見つかりません");
+  if (!canAccessChannel(user, message.channel)) {
+    throw new Error("このチャンネルにアクセスする権限がありません");
+  }
+
+  const existing = await prisma.messageReaction.findUnique({
+    where: { messageId_userId_emoji: { messageId, userId: user.id, emoji } },
+  });
+  if (existing) {
+    await prisma.messageReaction.delete({ where: { id: existing.id } });
+  } else {
+    await prisma.messageReaction.create({ data: { messageId, userId: user.id, emoji } });
+  }
+
   revalidatePath(`/messages/${message.channelId}`);
 }
 

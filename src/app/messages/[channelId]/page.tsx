@@ -8,6 +8,7 @@ import { isViewOnly } from "@/lib/categories";
 import AppShell from "@/components/AppShell";
 import MessageComposer from "@/components/MessageComposer";
 import MessageBody from "@/components/MessageBody";
+import MessageReactions from "@/components/MessageReactions";
 import PollRefresh from "@/components/PollRefresh";
 import ChannelDeleteButton from "@/components/ChannelDeleteButton";
 import MessageDeleteButton from "@/components/MessageDeleteButton";
@@ -34,7 +35,10 @@ export default async function ChannelPage({
   const [recent, allUsers] = await Promise.all([
     prisma.message.findMany({
       where: { channelId },
-      include: { author: { select: { id: true, name: true } } },
+      include: {
+        author: { select: { id: true, name: true } },
+        reactions: { select: { emoji: true, userId: true } },
+      },
       orderBy: { createdAt: "desc" },
       take: 200,
     }),
@@ -112,6 +116,7 @@ export default async function ChannelPage({
                 )}
               </p>
               <MessageBody body={m.body} members={members} />
+              <MessageReactions messageId={m.id} reactions={m.reactions} currentUserId={user.id} />
               {readCountFor(m) > 0 && (
                 <p className="mt-0.5 text-right text-[10px] text-gray-400">
                   既読{readCountFor(m)}
