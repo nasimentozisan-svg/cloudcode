@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { upload } from "@vercel/blob/client";
 import { postMessageAction } from "@/lib/actions/messages";
 import { MENTION_ALL, activeMentionQuery, type MentionableMember } from "@/lib/mentions";
 import { MAX_ATTACHMENT_SIZE } from "@/lib/attachments";
@@ -101,7 +102,16 @@ export default function MessageComposer({
     setError(null);
     startTransition(async () => {
       try {
-        await postMessageAction(channelId, body, file);
+        let attachment: { url: string; name: string } | null = null;
+        if (file) {
+          const blob = await upload(file.name, file, {
+            access: "public",
+            handleUploadUrl: "/api/upload",
+            clientPayload: "attachment",
+          });
+          attachment = { url: blob.url, name: file.name };
+        }
+        await postMessageAction(channelId, body, attachment);
         setBody("");
         setMention(null);
         removeFile();

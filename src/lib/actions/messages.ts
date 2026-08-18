@@ -1,7 +1,6 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
-import { put, del } from "@/lib/blob";
+import { del } from "@/lib/blob";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -13,7 +12,7 @@ import { escapeHtml } from "@/lib/email";
 import { notifyRecipients } from "@/lib/notify";
 import { findMentions } from "@/lib/mentions";
 import { REACTION_EMOJIS, type ReactionEmoji } from "@/lib/reactions";
-import { MAX_ATTACHMENT_SIZE, ATTACHMENT_RETENTION_DAYS } from "@/lib/attachments";
+import { ATTACHMENT_RETENTION_DAYS } from "@/lib/attachments";
 import type { Category } from "@/generated/prisma/client";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
@@ -68,7 +67,11 @@ export async function createChannelAction(
   redirect(`/messages/${channel.id}`);
 }
 
-export async function postMessageAction(channelId: string, body: string, file?: File | null) {
+export async function postMessageAction(
+  channelId: string,
+  body: string,
+  attachment?: { url: string; name: string } | null
+) {
   const user = await getCurrentUser();
   if (!user) throw new Error("ログインが必要です");
   if (isViewOnly(user.categories.map((c) => c.category))) {
@@ -76,7 +79,7 @@ export async function postMessageAction(channelId: string, body: string, file?: 
   }
 
   const trimmedBody = body.trim();
-  const hasFile = Boolean(file && file.size > 0);
+  const hasFile = Boolean(attachment);
   if (trimmedBody.length === 0 && !hasFile) {
     throw new Error("メッセージを入力するか、ファイルを添付してください");
   }
@@ -86,8 +89,11 @@ export async function postMessageAction(channelId: string, body: string, file?: 
       throw new Error(parsed.error.issues[0]?.message ?? "入力内容を確認してください");
     }
   }
-  if (hasFile && file!.size > MAX_ATTACHMENT_SIZE) {
-    throw new Error("添付ファイルは10MBまでです");
+  // The upload already happened client-side straight to Blob storage (see
+  // /api/upload) - this is just a sanity check that we were handed a real
+  // blob URL, not some arbitrary link dressed up as an attachment.
+  if (hasFile && !attachment!.url.includes(".blob.vercel-storage.com")) {
+    throw new Error("添付ファイルのURLが不正です");
   }
 
   const channel = await prisma.channel.findUnique({
@@ -99,18 +105,11 @@ export async function postMessageAction(channelId: string, body: string, file?: 
     throw new Error("このチャンネルに投稿する権限がありません");
   }
 
-  let attachmentPath: string | null = null;
-  let attachmentName: string | null = null;
-  let attachmentExpiresAt: Date | null = null;
-  if (hasFile) {
-    const blob = await put(`message-attachments/${randomUUID()}`, file!, {
-      access: "public",
-      contentType: file!.type || "application/octet-stream",
-    });
-    attachmentPath = blob.url;
-    attachmentName = file!.name;
-    attachmentExpiresAt = new Date(Date.now() + ATTACHMENT_RETENTION_DAYS * 24 * 60 * 60 * 1000);
-  }
+  const attachmentPath = hasFile ? attachment!.url : null;
+  const attachmentName = hasFile ? attachment!.name : null;
+  const attachmentExpiresAt = hasFile
+    ? new Date(Date.now() + ATTACHMENT_RETENTION_DAYS * 24 * 60 * 60 * 1000)
+    : null;
 
   await prisma.message.create({
     data: { channelId, authorId: user.id, body: trimmedBody, attachmentPath, attachmentName, attachmentExpiresAt },

@@ -14,17 +14,19 @@ export type UploadCardsState = {
   error?: string;
 };
 
-export async function uploadCardsAction(
-  _prev: UploadCardsState,
-  formData: FormData
+// The roster PDF is uploaded client-side straight to Blob storage first
+// (see /api/upload) rather than through this action's own body - Vercel
+// serverless functions hard-cap incoming request bodies at 4.5MB regardless
+// of app config, and roster PDFs full of player photos routinely exceed
+// that. This action just receives the resulting blob URLs, fetches each
+// PDF back server-side (outbound fetches aren't subject to that limit),
+// processes it, then deletes the temporary upload.
+export async function processRosterUploadsAction(
+  uploads: { url: string; name: string }[]
 ): Promise<UploadCardsState> {
   await requireAdmin();
 
-  const files = formData
-    .getAll("rosters")
-    .filter((f): f is File => f instanceof File && f.size > 0);
-
-  if (files.length === 0) {
+  if (uploads.length === 0) {
     return { matched: 0, pending: 0, error: "PDFファイルを選択してください" };
   }
 
@@ -96,15 +98,25 @@ export async function uploadCardsAction(
     }
   }
 
-  for (const file of files) {
-    const buffer = Buffer.from(await file.arrayBuffer());
+  for (const { url, name } of uploads) {
+    let buffer: Buffer;
+    try {
+      const res = await fetch(url);
+      buffer = Buffer.from(await res.arrayBuffer());
+    } catch (e) {
+      console.error("Failed to fetch uploaded roster", name, e);
+      failed++;
+      continue;
+    }
 
     let rosterEntries;
     try {
       rosterEntries = await parseRosterPdf(buffer);
     } catch (e) {
-      console.error("PDF parse failed for", file.name, e);
+      console.error("PDF parse failed for", name, e);
       continue;
+    } finally {
+      await del(url).catch(() => {});
     }
 
     // Each entry needs a Blob upload plus DB writes; running them in
@@ -114,7 +126,7 @@ export async function uploadCardsAction(
     const results = await Promise.allSettled(rosterEntries.map(processEntry));
     for (const result of results) {
       if (result.status === "rejected") {
-        console.error("Roster entry failed for", file.name, result.reason);
+        console.error("Roster entry failed for", name, result.reason);
         failed++;
       }
     }

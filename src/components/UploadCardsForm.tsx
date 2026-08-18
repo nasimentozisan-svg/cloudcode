@@ -1,19 +1,55 @@
 "use client";
 
-import { useActionState } from "react";
-import { uploadCardsAction, type UploadCardsState } from "@/lib/actions/cards";
-import SubmitButton from "@/components/SubmitButton";
-
-const initialState: UploadCardsState = { matched: 0, pending: 0 };
+import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { upload } from "@vercel/blob/client";
+import { processRosterUploadsAction, type UploadCardsState } from "@/lib/actions/cards";
 
 export default function UploadCardsForm() {
-  const [state, formAction] = useActionState(uploadCardsAction, initialState);
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [state, setState] = useState<UploadCardsState>({ matched: 0, pending: 0 });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const files = Array.from(fileInputRef.current?.files ?? []).filter((f) => f.size > 0);
+    if (files.length === 0) {
+      setState({ matched: 0, pending: 0, error: "PDFファイルを選択してください" });
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        const uploads = await Promise.all(
+          files.map(async (file) => {
+            const blob = await upload(file.name, file, {
+              access: "public",
+              handleUploadUrl: "/api/upload",
+              clientPayload: "roster",
+            });
+            return { url: blob.url, name: file.name };
+          })
+        );
+        const result = await processRosterUploadsAction(uploads);
+        setState(result);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        router.refresh();
+      } catch (err) {
+        setState({
+          matched: 0,
+          pending: 0,
+          error: err instanceof Error ? err.message : "アップロードに失敗しました",
+        });
+      }
+    });
+  }
 
   return (
-    <form action={formAction} className="space-y-3">
+    <form onSubmit={handleSubmit} className="space-y-3">
       <input
+        ref={fileInputRef}
         type="file"
-        name="rosters"
         accept="application/pdf"
         multiple
         required
@@ -32,7 +68,13 @@ export default function UploadCardsForm() {
         </p>
       )}
 
-      <SubmitButton>アップロードして自動紐付け</SubmitButton>
+      <button
+        type="submit"
+        disabled={isPending}
+        className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+      >
+        {isPending ? "アップロード中..." : "アップロードして自動紐付け"}
+      </button>
     </form>
   );
 }
