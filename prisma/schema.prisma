@@ -201,14 +201,17 @@ model ChannelCategory {
 }
 
 model Message {
-  id        String            @id @default(cuid())
-  channelId String
-  authorId  String?
-  body      String
-  createdAt DateTime          @default(now())
-  channel   Channel           @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  author    User?             @relation(fields: [authorId], references: [id], onDelete: SetNull)
-  reactions MessageReaction[]
+  id                  String            @id @default(cuid())
+  channelId           String
+  authorId            String?
+  body                String
+  attachmentPath      String?
+  attachmentName      String?
+  attachmentExpiresAt DateTime?
+  createdAt           DateTime          @default(now())
+  channel             Channel           @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  author              User?             @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  reactions           MessageReaction[]
 
   @@index([channelId, createdAt])
 }

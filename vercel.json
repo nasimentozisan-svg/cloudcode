@@ -1,5 +1,6 @@
 {
   "crons": [
-    { "path": "/api/cron/attendance-reminder", "schedule": "0 10 * * *" }
+    { "path": "/api/cron/attendance-reminder", "schedule": "0 10 * * *" },
+    { "path": "/api/cron/attachment-cleanup", "schedule": "0 15 * * *" }
   ]
 }

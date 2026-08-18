@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { postMessageAction } from "@/lib/actions/messages";
 import { MENTION_ALL, activeMentionQuery, type MentionableMember } from "@/lib/mentions";
+import { MAX_ATTACHMENT_SIZE } from "@/lib/attachments";
 
 export default function MessageComposer({
   channelId,
@@ -17,7 +18,9 @@ export default function MessageComposer({
   const [error, setError] = useState<string | null>(null);
   const [body, setBody] = useState("");
   const [mention, setMention] = useState<{ query: string; start: number } | null>(null);
+  const [file, setFile] = useState<File | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const candidates = mention
     ? [{ id: "__all__", name: MENTION_ALL }, ...members]
@@ -77,14 +80,31 @@ export default function MessageComposer({
     });
   }
 
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = e.target.files?.[0] ?? null;
+    if (selected && selected.size > MAX_ATTACHMENT_SIZE) {
+      setError("添付ファイルは10MBまでです");
+      e.target.value = "";
+      return;
+    }
+    setError(null);
+    setFile(selected);
+  }
+
+  function removeFile() {
+    setFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
   function handleSubmit() {
-    if (body.trim().length === 0) return;
+    if (body.trim().length === 0 && !file) return;
     setError(null);
     startTransition(async () => {
       try {
-        await postMessageAction(channelId, body);
+        await postMessageAction(channelId, body, file);
         setBody("");
         setMention(null);
+        removeFile();
         router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : "送信に失敗しました");
@@ -96,7 +116,21 @@ export default function MessageComposer({
     <div>
       <p className="mb-1 text-xs text-gray-400">
         「@」ボタンまたは入力欄で「@」を押して相手を指定すると通知が届きます（「@{MENTION_ALL}」で全員に通知。何も指定しなければ通知なし）
+        ／添付ファイルは10MBまで、15日間保存されます
       </p>
+      {file && (
+        <div className="mb-1 flex items-center gap-2 rounded-md bg-gray-50 px-2 py-1 text-xs text-gray-600">
+          <span>📎 {file.name}</span>
+          <button
+            type="button"
+            onClick={removeFile}
+            className="text-gray-400 hover:text-gray-600"
+            aria-label="添付を取り消す"
+          >
+            ×
+          </button>
+        </div>
+      )}
       <div className="relative flex items-end gap-2">
         {mention && candidates.length > 0 && (
           <div className="absolute bottom-full left-0 mb-1 max-h-56 w-56 overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg">
@@ -131,6 +165,20 @@ export default function MessageComposer({
           aria-label="太字"
         >
           B
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          onChange={handleFileChange}
+          className="hidden"
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="shrink-0 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+          aria-label="ファイルを添付"
+        >
+          📎
         </button>
         <textarea
           ref={textareaRef}

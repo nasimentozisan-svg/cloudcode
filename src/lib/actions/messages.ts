@@ -1,5 +1,7 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
+import { put, del } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -11,6 +13,7 @@ import { escapeHtml } from "@/lib/email";
 import { notifyRecipients } from "@/lib/notify";
 import { findMentions } from "@/lib/mentions";
 import { REACTION_EMOJIS, type ReactionEmoji } from "@/lib/reactions";
+import { MAX_ATTACHMENT_SIZE, ATTACHMENT_RETENTION_DAYS } from "@/lib/attachments";
 import type { Category } from "@/generated/prisma/client";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
@@ -65,16 +68,26 @@ export async function createChannelAction(
   redirect(`/messages/${channel.id}`);
 }
 
-export async function postMessageAction(channelId: string, body: string) {
+export async function postMessageAction(channelId: string, body: string, file?: File | null) {
   const user = await getCurrentUser();
   if (!user) throw new Error("ログインが必要です");
   if (isViewOnly(user.categories.map((c) => c.category))) {
     throw new Error("この種類のアカウントはメッセージ機能を利用できません");
   }
 
-  const parsed = messageBodySchema.safeParse(body);
-  if (!parsed.success) {
-    throw new Error(parsed.error.issues[0]?.message ?? "入力内容を確認してください");
+  const trimmedBody = body.trim();
+  const hasFile = Boolean(file && file.size > 0);
+  if (trimmedBody.length === 0 && !hasFile) {
+    throw new Error("メッセージを入力するか、ファイルを添付してください");
+  }
+  if (trimmedBody.length > 0) {
+    const parsed = messageBodySchema.safeParse(trimmedBody);
+    if (!parsed.success) {
+      throw new Error(parsed.error.issues[0]?.message ?? "入力内容を確認してください");
+    }
+  }
+  if (hasFile && file!.size > MAX_ATTACHMENT_SIZE) {
+    throw new Error("添付ファイルは10MBまでです");
   }
 
   const channel = await prisma.channel.findUnique({
@@ -86,8 +99,21 @@ export async function postMessageAction(channelId: string, body: string) {
     throw new Error("このチャンネルに投稿する権限がありません");
   }
 
+  let attachmentPath: string | null = null;
+  let attachmentName: string | null = null;
+  let attachmentExpiresAt: Date | null = null;
+  if (hasFile) {
+    const blob = await put(`message-attachments/${randomUUID()}`, file!, {
+      access: "public",
+      contentType: file!.type || "application/octet-stream",
+    });
+    attachmentPath = blob.url;
+    attachmentName = file!.name;
+    attachmentExpiresAt = new Date(Date.now() + ATTACHMENT_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+  }
+
   await prisma.message.create({
-    data: { channelId, authorId: user.id, body: parsed.data },
+    data: { channelId, authorId: user.id, body: trimmedBody, attachmentPath, attachmentName, attachmentExpiresAt },
   });
 
   // Only @mentioned people are notified (or everyone, for @全員) — a plain
@@ -105,7 +131,7 @@ export async function postMessageAction(channelId: string, body: string) {
     },
   });
   const channelMembers = allUsers.filter((u) => canAccessChannel(u, channel));
-  const { userIds: mentionedIds, all: mentionsAll } = findMentions(parsed.data, channelMembers);
+  const { userIds: mentionedIds, all: mentionsAll } = findMentions(trimmedBody, channelMembers);
   const recipients = channelMembers.filter((u) => mentionsAll || mentionedIds.includes(u.id));
   if (recipients.length > 0) {
     await notifyRecipients(
@@ -113,11 +139,11 @@ export async function postMessageAction(channelId: string, body: string) {
       {
         subject: `【EFK members】# ${channel.name} でメンションされました`,
         html: `<p><strong>${escapeHtml(user.name)}</strong> さんが # ${escapeHtml(channel.name)} であなたにメンションしました。</p>
-        <p style="white-space:pre-wrap">${escapeHtml(parsed.data)}</p>
+        <p style="white-space:pre-wrap">${escapeHtml(trimmedBody)}</p>
         ${APP_URL ? `<p><a href="${APP_URL}/messages/${channelId}">チャンネルを開く</a></p>` : ""}`,
       },
-      { title: `# ${channel.name}`, body: `${user.name}: ${parsed.data}`, url: `/messages/${channelId}` },
-      `【EFK members】# ${channel.name}\n${user.name}さんがメンションしました\n${parsed.data}`
+      { title: `# ${channel.name}`, body: `${user.name}: ${trimmedBody}`, url: `/messages/${channelId}` },
+      `【EFK members】# ${channel.name}\n${user.name}さんがメンションしました\n${trimmedBody}`
     );
   }
 
@@ -127,8 +153,11 @@ export async function postMessageAction(channelId: string, body: string) {
       where: { channelId },
       orderBy: { createdAt: "asc" },
       take: count - MAX_MESSAGES_PER_CHANNEL,
-      select: { id: true },
+      select: { id: true, attachmentPath: true },
     });
+    await Promise.allSettled(
+      oldest.filter((m) => m.attachmentPath).map((m) => del(m.attachmentPath!))
+    );
     await prisma.message.deleteMany({ where: { id: { in: oldest.map((m) => m.id) } } });
   }
 
@@ -145,6 +174,9 @@ export async function deleteMessageAction(messageId: string) {
     throw new Error("このメッセージを削除する権限がありません");
   }
 
+  if (message.attachmentPath) {
+    await del(message.attachmentPath).catch(() => {});
+  }
   await prisma.message.delete({ where: { id: messageId } });
   revalidatePath(`/messages/${message.channelId}`);
 }

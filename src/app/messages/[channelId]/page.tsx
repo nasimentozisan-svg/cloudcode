@@ -115,7 +115,22 @@ export default async function ChannelPage({
                   <MessageDeleteButton messageId={m.id} />
                 )}
               </p>
-              <MessageBody body={m.body} members={members} />
+              {m.body.length > 0 && <MessageBody body={m.body} members={members} />}
+              {m.attachmentPath && (
+                <a
+                  href={m.attachmentPath}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1 flex items-center gap-1 text-sm text-emerald-700 hover:underline"
+                >
+                  📎 {m.attachmentName}
+                  {m.attachmentExpiresAt && (
+                    <span className="text-xs text-gray-400">
+                      （保存期限{formatJST(m.attachmentExpiresAt, { month: "numeric", day: "numeric" })}）
+                    </span>
+                  )}
+                </a>
+              )}
               <MessageReactions messageId={m.id} reactions={m.reactions} currentUserId={user.id} />
               {readCountFor(m) > 0 && (
                 <p className="mt-0.5 text-right text-[10px] text-gray-400">
