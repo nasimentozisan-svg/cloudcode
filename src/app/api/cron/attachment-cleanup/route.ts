@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { del } from "@vercel/blob";
+import { del } from "@/lib/blob";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
