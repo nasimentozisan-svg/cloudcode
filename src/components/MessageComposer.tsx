@@ -131,7 +131,15 @@ export default function MessageComposer({
           </button>
         </div>
       )}
-      <div className="relative flex items-end gap-2">
+      <textarea
+        ref={textareaRef}
+        value={body}
+        onChange={handleChange}
+        rows={3}
+        placeholder="メッセージを入力（@で通知したい相手を指定）"
+        className="w-full resize-none rounded-md border border-gray-300 px-3 py-2 text-sm"
+      />
+      <div className="relative mt-2 flex items-center gap-2">
         {mention && candidates.length > 0 && (
           <div className="absolute bottom-full left-0 mb-1 max-h-56 w-56 overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg">
             {candidates.map((c) => (
@@ -180,19 +188,11 @@ export default function MessageComposer({
         >
           📎
         </button>
-        <textarea
-          ref={textareaRef}
-          value={body}
-          onChange={handleChange}
-          rows={2}
-          placeholder="メッセージを入力（@で通知したい相手を指定）"
-          className="flex-1 resize-none rounded-md border border-gray-300 px-3 py-2 text-sm"
-        />
         <button
           type="button"
           onClick={handleSubmit}
           disabled={isPending}
-          className="shrink-0 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+          className="ml-auto shrink-0 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
         >
           送信
         </button>
