@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import { postMessageAction } from "@/lib/actions/messages";
 import { MENTION_ALL, activeMentionQuery, type MentionableMember } from "@/lib/mentions";
-import { MAX_ATTACHMENT_SIZE } from "@/lib/attachments";
+import { MAX_ATTACHMENT_SIZE, MAX_ATTACHMENTS_PER_MESSAGE } from "@/lib/attachments";
 
 export default function MessageComposer({
   channelId,
@@ -19,7 +19,7 @@ export default function MessageComposer({
   const [error, setError] = useState<string | null>(null);
   const [body, setBody] = useState("");
   const [mention, setMention] = useState<{ query: string; start: number } | null>(null);
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -82,39 +82,52 @@ export default function MessageComposer({
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const selected = e.target.files?.[0] ?? null;
-    if (selected && selected.size > MAX_ATTACHMENT_SIZE) {
-      setError("添付ファイルは10MBまでです");
-      e.target.value = "";
+    const selected = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    if (selected.length === 0) return;
+
+    const next = [...files, ...selected];
+    if (next.length > MAX_ATTACHMENTS_PER_MESSAGE) {
+      setError(`添付ファイルは${MAX_ATTACHMENTS_PER_MESSAGE}個までです`);
+      return;
+    }
+    const tooBig = selected.find((f) => f.size > MAX_ATTACHMENT_SIZE);
+    if (tooBig) {
+      setError(`「${tooBig.name}」は10MBを超えています`);
       return;
     }
     setError(null);
-    setFile(selected);
+    setFiles(next);
   }
 
-  function removeFile() {
-    setFile(null);
+  function removeFile(index: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function clearFiles() {
+    setFiles([]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   function handleSubmit() {
-    if (body.trim().length === 0 && !file) return;
+    if (body.trim().length === 0 && files.length === 0) return;
     setError(null);
     startTransition(async () => {
       try {
-        let attachment: { url: string; name: string } | null = null;
-        if (file) {
-          const blob = await upload(file.name, file, {
-            access: "public",
-            handleUploadUrl: "/api/upload",
-            clientPayload: "attachment",
-          });
-          attachment = { url: blob.url, name: file.name };
-        }
-        await postMessageAction(channelId, body, attachment);
+        const attachments = await Promise.all(
+          files.map(async (file) => {
+            const blob = await upload(file.name, file, {
+              access: "public",
+              handleUploadUrl: "/api/upload",
+              clientPayload: "attachment",
+            });
+            return { url: blob.url, name: file.name };
+          })
+        );
+        await postMessageAction(channelId, body, attachments);
         setBody("");
         setMention(null);
-        removeFile();
+        clearFiles();
         router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : "送信に失敗しました");
@@ -126,19 +139,26 @@ export default function MessageComposer({
     <div>
       <p className="mb-1 text-xs text-gray-400">
         「@」ボタンまたは入力欄で「@」を押して相手を指定すると通知が届きます（「@{MENTION_ALL}」で全員に通知。何も指定しなければ通知なし）
-        ／添付ファイルは10MBまで、15日間保存されます
+        ／添付ファイルは1つ10MBまで・最大{MAX_ATTACHMENTS_PER_MESSAGE}個、15日間保存されます
       </p>
-      {file && (
-        <div className="mb-1 flex items-center gap-2 rounded-md bg-gray-50 px-2 py-1 text-xs text-gray-600">
-          <span>📎 {file.name}</span>
-          <button
-            type="button"
-            onClick={removeFile}
-            className="text-gray-400 hover:text-gray-600"
-            aria-label="添付を取り消す"
-          >
-            ×
-          </button>
+      {files.length > 0 && (
+        <div className="mb-1 flex flex-wrap gap-1">
+          {files.map((f, i) => (
+            <div
+              key={`${f.name}-${i}`}
+              className="flex items-center gap-2 rounded-md bg-gray-50 px-2 py-1 text-xs text-gray-600"
+            >
+              <span>📎 {f.name}</span>
+              <button
+                type="button"
+                onClick={() => removeFile(i)}
+                className="text-gray-400 hover:text-gray-600"
+                aria-label={`${f.name}の添付を取り消す`}
+              >
+                ×
+              </button>
+            </div>
+          ))}
         </div>
       )}
       <textarea
@@ -187,6 +207,7 @@ export default function MessageComposer({
         <input
           ref={fileInputRef}
           type="file"
+          multiple
           onChange={handleFileChange}
           className="hidden"
         />

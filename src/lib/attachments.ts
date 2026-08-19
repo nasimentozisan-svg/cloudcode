@@ -1,2 +1,3 @@
 export const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024; // 10MB
 export const ATTACHMENT_RETENTION_DAYS = 15;
+export const MAX_ATTACHMENTS_PER_MESSAGE = 5;

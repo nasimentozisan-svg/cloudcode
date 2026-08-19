@@ -10,6 +10,7 @@ import MessageComposer from "@/components/MessageComposer";
 import MessageBody from "@/components/MessageBody";
 import MessageReactions from "@/components/MessageReactions";
 import PollRefresh from "@/components/PollRefresh";
+import ScrollToBottomAnchor from "@/components/ScrollToBottomAnchor";
 import ChannelDeleteButton from "@/components/ChannelDeleteButton";
 import MessageDeleteButton from "@/components/MessageDeleteButton";
 
@@ -38,6 +39,7 @@ export default async function ChannelPage({
       include: {
         author: { select: { id: true, name: true } },
         reactions: { select: { emoji: true, userId: true } },
+        attachments: { select: { id: true, path: true, name: true, expiresAt: true } },
       },
       orderBy: { createdAt: "desc" },
       take: 200,
@@ -116,20 +118,23 @@ export default async function ChannelPage({
                 )}
               </p>
               {m.body.length > 0 && <MessageBody body={m.body} members={members} />}
-              {m.attachmentPath && (
-                <a
-                  href={m.attachmentPath}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-1 flex items-center gap-1 text-sm text-emerald-700 hover:underline"
-                >
-                  📎 {m.attachmentName}
-                  {m.attachmentExpiresAt && (
-                    <span className="text-xs text-gray-400">
-                      （保存期限{formatJST(m.attachmentExpiresAt, { month: "numeric", day: "numeric" })}）
-                    </span>
-                  )}
-                </a>
+              {m.attachments.length > 0 && (
+                <div className="mt-1 space-y-0.5">
+                  {m.attachments.map((a) => (
+                    <a
+                      key={a.id}
+                      href={a.path}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-sm text-emerald-700 hover:underline"
+                    >
+                      📎 {a.name}
+                      <span className="text-xs text-gray-400">
+                        （保存期限{formatJST(a.expiresAt, { month: "numeric", day: "numeric" })}）
+                      </span>
+                    </a>
+                  ))}
+                </div>
               )}
               <MessageReactions messageId={m.id} reactions={m.reactions} currentUserId={user.id} />
               {readCountFor(m) > 0 && (
@@ -139,6 +144,7 @@ export default async function ChannelPage({
               )}
             </div>
           ))}
+          <ScrollToBottomAnchor />
         </div>
         <div className="border-t border-gray-200 p-3">
           <MessageComposer channelId={channel.id} members={members} />

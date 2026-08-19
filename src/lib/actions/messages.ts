@@ -12,7 +12,7 @@ import { escapeHtml } from "@/lib/email";
 import { notifyRecipients } from "@/lib/notify";
 import { findMentions } from "@/lib/mentions";
 import { REACTION_EMOJIS, type ReactionEmoji } from "@/lib/reactions";
-import { ATTACHMENT_RETENTION_DAYS } from "@/lib/attachments";
+import { ATTACHMENT_RETENTION_DAYS, MAX_ATTACHMENTS_PER_MESSAGE } from "@/lib/attachments";
 import type { Category } from "@/generated/prisma/client";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
@@ -70,7 +70,7 @@ export async function createChannelAction(
 export async function postMessageAction(
   channelId: string,
   body: string,
-  attachment?: { url: string; name: string } | null
+  attachments?: { url: string; name: string }[]
 ) {
   const user = await getCurrentUser();
   if (!user) throw new Error("ログインが必要です");
@@ -79,8 +79,8 @@ export async function postMessageAction(
   }
 
   const trimmedBody = body.trim();
-  const hasFile = Boolean(attachment);
-  if (trimmedBody.length === 0 && !hasFile) {
+  const files = attachments ?? [];
+  if (trimmedBody.length === 0 && files.length === 0) {
     throw new Error("メッセージを入力するか、ファイルを添付してください");
   }
   if (trimmedBody.length > 0) {
@@ -89,10 +89,13 @@ export async function postMessageAction(
       throw new Error(parsed.error.issues[0]?.message ?? "入力内容を確認してください");
     }
   }
-  // The upload already happened client-side straight to Blob storage (see
-  // /api/upload) - this is just a sanity check that we were handed a real
-  // blob URL, not some arbitrary link dressed up as an attachment.
-  if (hasFile && !attachment!.url.includes(".blob.vercel-storage.com")) {
+  if (files.length > MAX_ATTACHMENTS_PER_MESSAGE) {
+    throw new Error(`添付ファイルは${MAX_ATTACHMENTS_PER_MESSAGE}個までです`);
+  }
+  // The uploads already happened client-side straight to Blob storage (see
+  // /api/upload) - this is just a sanity check that we were handed real
+  // blob URLs, not some arbitrary link dressed up as an attachment.
+  if (files.some((f) => !f.url.includes(".blob.vercel-storage.com"))) {
     throw new Error("添付ファイルのURLが不正です");
   }
 
@@ -105,14 +108,17 @@ export async function postMessageAction(
     throw new Error("このチャンネルに投稿する権限がありません");
   }
 
-  const attachmentPath = hasFile ? attachment!.url : null;
-  const attachmentName = hasFile ? attachment!.name : null;
-  const attachmentExpiresAt = hasFile
-    ? new Date(Date.now() + ATTACHMENT_RETENTION_DAYS * 24 * 60 * 60 * 1000)
-    : null;
+  const attachmentExpiresAt = new Date(Date.now() + ATTACHMENT_RETENTION_DAYS * 24 * 60 * 60 * 1000);
 
   await prisma.message.create({
-    data: { channelId, authorId: user.id, body: trimmedBody, attachmentPath, attachmentName, attachmentExpiresAt },
+    data: {
+      channelId,
+      authorId: user.id,
+      body: trimmedBody,
+      attachments: {
+        create: files.map((f) => ({ path: f.url, name: f.name, expiresAt: attachmentExpiresAt })),
+      },
+    },
   });
 
   // Only @mentioned people are notified (or everyone, for @全員) — a plain
@@ -152,10 +158,10 @@ export async function postMessageAction(
       where: { channelId },
       orderBy: { createdAt: "asc" },
       take: count - MAX_MESSAGES_PER_CHANNEL,
-      select: { id: true, attachmentPath: true },
+      select: { id: true, attachments: { select: { path: true } } },
     });
     await Promise.allSettled(
-      oldest.filter((m) => m.attachmentPath).map((m) => del(m.attachmentPath!))
+      oldest.flatMap((m) => m.attachments.map((a) => del(a.path)))
     );
     await prisma.message.deleteMany({ where: { id: { in: oldest.map((m) => m.id) } } });
   }
@@ -167,15 +173,16 @@ export async function deleteMessageAction(messageId: string) {
   const user = await getCurrentUser();
   if (!user) throw new Error("ログインが必要です");
 
-  const message = await prisma.message.findUnique({ where: { id: messageId } });
+  const message = await prisma.message.findUnique({
+    where: { id: messageId },
+    include: { attachments: { select: { path: true } } },
+  });
   if (!message) return;
   if (!user.isAdmin && message.authorId !== user.id) {
     throw new Error("このメッセージを削除する権限がありません");
   }
 
-  if (message.attachmentPath) {
-    await del(message.attachmentPath).catch(() => {});
-  }
+  await Promise.allSettled(message.attachments.map((a) => del(a.path).catch(() => {})));
   await prisma.message.delete({ where: { id: messageId } });
   revalidatePath(`/messages/${message.channelId}`);
 }
