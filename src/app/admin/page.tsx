@@ -5,6 +5,7 @@ import AppShell from "@/components/AppShell";
 import AdminUserTable from "@/components/AdminUserTable";
 import AdminCreateUserForm from "@/components/AdminCreateUserForm";
 import { calculateAttendanceRate, type AttendanceRate } from "@/lib/attendance";
+import { isGoogleSyncConfigured } from "@/lib/google-calendar";
 
 export default async function AdminPage() {
   const user = await getCurrentUser();
@@ -51,6 +52,34 @@ export default async function AdminPage() {
       </p>
       <div className="mt-4 rounded-xl border border-gray-200 bg-white p-5">
         <AdminCreateUserForm />
+      </div>
+
+      <h2 className="mt-10 text-lg font-bold text-gray-900">
+        Googleカレンダー連携
+      </h2>
+      <p className="mt-1 text-sm text-gray-500">
+        毎日8:00にスケジュールの予定を自動でGoogleカレンダー（emfrentekumamotoアカウント）に反映します。手入力した予定には触れません。
+      </p>
+      <div className="mt-4 rounded-xl border border-gray-200 bg-white p-5">
+        {isGoogleSyncConfigured() ? (
+          <p className="text-sm text-green-700">連携設定済みです。毎日自動で同期されます。</p>
+        ) : (
+          <>
+            <p className="text-sm text-gray-700">
+              まだ連携が完了していません。Vercelの環境変数に
+              <code className="mx-1 rounded bg-gray-100 px-1">GOOGLE_OAUTH_CLIENT_ID</code>
+              と
+              <code className="mx-1 rounded bg-gray-100 px-1">GOOGLE_OAUTH_CLIENT_SECRET</code>
+              を設定してデプロイした後、下のボタンから一度だけ許可してください。
+            </p>
+            <a
+              href="/api/admin/google-calendar-authorize"
+              className="mt-3 inline-block rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
+            >
+              Googleカレンダーへのアクセスを許可する
+            </a>
+          </>
+        )}
       </div>
     </AppShell>
   );
