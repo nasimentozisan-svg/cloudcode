@@ -296,6 +296,11 @@ export async function deleteEventAction(eventId: string) {
     throw new Error("この予定を削除する権限がありません");
   }
 
+  if (event.googleCalendarEventId) {
+    await prisma.pendingGoogleDeletion.create({
+      data: { googleCalendarEventId: event.googleCalendarEventId },
+    });
+  }
   await prisma.event.delete({ where: { id: eventId } });
   revalidatePath("/schedule");
   revalidatePath("/dashboard");

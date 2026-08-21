@@ -96,19 +96,34 @@ enum AttendanceStatus {
 }
 
 model Event {
-  id          String               @id @default(cuid())
-  title       String
-  location    String?
-  notes       String?
-  startAt     DateTime
-  createdById String?
-  createdBy   User?                @relation(fields: [createdById], references: [id], onDelete: SetNull)
-  categories  EventCategory[]
-  responses   AttendanceResponse[]
-  matchResult MatchResult?
-  reads       EventRead[]
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
+  id                    String               @id @default(cuid())
+  title                 String
+  location              String?
+  notes                 String?
+  startAt               DateTime
+  createdById           String?
+  createdBy             User?                @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  categories            EventCategory[]
+  responses             AttendanceResponse[]
+  matchResult           MatchResult?
+  reads                 EventRead[]
+  // Set once a daily sync job (see docs/INFRASTRUCTURE.md) creates a real
+  // Google Calendar event for this row - lets the sync match/update/delete
+  // exactly the event it made, and never touch anything the club typed
+  // directly into that Google account.
+  googleCalendarEventId String?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+}
+
+// Queued when an Event that already had a synced Google Calendar event gets
+// deleted - the Event row (and its googleCalendarEventId) is gone at that
+// point, so this is the only record left telling the sync job which Google
+// event to remove. Cleared by the sync job once it has deleted it.
+model PendingGoogleDeletion {
+  id                    String   @id @default(cuid())
+  googleCalendarEventId String
+  createdAt             DateTime @default(now())
 }
 
 model EventRead {
