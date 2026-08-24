@@ -9,11 +9,16 @@ import { defaultLandingPath } from "@/lib/categories";
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
+  // Checked first (not after hasAdmin()) since this is the PWA's start_url -
+  // hit on every app launch - and an existing session already implies an
+  // admin exists, saving a DB round trip on the app's single busiest route.
+  const user = await getCurrentUser();
+  if (user) {
+    redirect(defaultLandingPath(user.categories.map((c) => c.category)));
+  }
+
   if (!(await hasAdmin())) {
     redirect("/setup");
   }
-
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  redirect(defaultLandingPath(user.categories.map((c) => c.category)));
+  redirect("/login");
 }
