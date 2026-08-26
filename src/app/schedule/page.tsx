@@ -7,6 +7,7 @@ import { categoryGroups, sortGroupsForViewer } from "@/lib/categories";
 import { buildEventForList } from "@/lib/schedule-view";
 import { getReadEventIds } from "@/lib/unread";
 import { getJSTDateParts } from "@/lib/datetime";
+import { getHolidayDaysInMonth } from "@/lib/holidays";
 import AppShell from "@/components/AppShell";
 import EventList from "@/components/EventList";
 import ScheduleCalendar, { type CalendarEvent } from "@/components/ScheduleCalendar";
@@ -92,6 +93,7 @@ export default async function SchedulePage({
     });
 
   const todayKey = `${nowParts.year}-${pad(nowParts.month)}-${pad(nowParts.day)}`;
+  const holidayDays = getHolidayDaysInMonth(calendarYear, calendarMonth);
 
   // Marks every event shown on this page as read - uses the readEventIds
   // snapshot captured above, so this render still shows accurate NEW badges
@@ -129,6 +131,7 @@ export default async function SchedulePage({
           month={calendarMonth}
           events={calendarEvents}
           todayKey={todayKey}
+          holidayDays={holidayDays}
         />
       </div>
 

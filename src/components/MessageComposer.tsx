@@ -6,6 +6,7 @@ import { upload } from "@vercel/blob/client";
 import { postMessageAction } from "@/lib/actions/messages";
 import { MENTION_ALL, activeMentionQuery, type MentionableMember } from "@/lib/mentions";
 import { MAX_ATTACHMENT_SIZE, MAX_ATTACHMENTS_PER_MESSAGE } from "@/lib/attachments";
+import { REACTION_EMOJIS } from "@/lib/reactions";
 
 export default function MessageComposer({
   channelId,
@@ -19,6 +20,7 @@ export default function MessageComposer({
   const [error, setError] = useState<string | null>(null);
   const [body, setBody] = useState("");
   const [mention, setMention] = useState<{ query: string; start: number } | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -78,6 +80,19 @@ export default function MessageComposer({
       } else {
         el.setSelectionRange(start + 2, start + 2);
       }
+    });
+  }
+
+  function insertEmoji(emoji: string) {
+    const el = textareaRef.current;
+    const caret = el?.selectionStart ?? body.length;
+    const next = `${body.slice(0, caret)}${emoji}${body.slice(caret)}`;
+    setBody(next);
+    setShowEmojiPicker(false);
+    requestAnimationFrame(() => {
+      const pos = caret + emoji.length;
+      el?.focus();
+      el?.setSelectionRange(pos, pos);
     });
   }
 
@@ -204,6 +219,34 @@ export default function MessageComposer({
         >
           B
         </button>
+        <div className="relative shrink-0">
+          {showEmojiPicker && (
+            <div className="absolute bottom-full left-0 mb-1 flex gap-1 rounded-md border border-gray-200 bg-white p-1 shadow-lg">
+              {REACTION_EMOJIS.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => insertEmoji(emoji)}
+                  className="rounded px-1.5 py-1 text-lg hover:bg-gray-100"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setShowEmojiPicker((v) => !v)}
+            className={`rounded-md border px-3 py-2 text-sm ${
+              showEmojiPicker
+                ? "border-emerald-600 bg-emerald-50"
+                : "border-gray-300 hover:bg-gray-50"
+            }`}
+            aria-label="絵文字を挿入"
+          >
+            😊
+          </button>
+        </div>
         <input
           ref={fileInputRef}
           type="file"

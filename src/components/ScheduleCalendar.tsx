@@ -25,12 +25,15 @@ export default function ScheduleCalendar({
   month,
   events,
   todayKey,
+  holidayDays,
 }: {
   year: number;
   month: number; // 1-12
   events: CalendarEvent[];
   todayKey: string; // "YYYY-MM-DD"
+  holidayDays: number[];
 }) {
+  const holidayDaySet = new Set(holidayDays);
   const firstOfMonth = new Date(year, month - 1, 1);
   const daysInMonth = new Date(year, month, 0).getDate();
   const startWeekday = firstOfMonth.getDay();
@@ -110,9 +113,10 @@ export default function ScheduleCalendar({
           const isToday = day !== null && key === todayKey;
           const dayEvents = day ? (eventsByDay.get(day) ?? []) : [];
           const weekday = i % 7; // 0=Sun ... 6=Sat, matches WEEKDAY_LABELS order
+          const isHoliday = day !== null && holidayDaySet.has(day);
           const numberColor = isToday
             ? "bg-emerald-600 font-bold text-white"
-            : weekday === 0
+            : weekday === 0 || isHoliday
               ? "text-red-500"
               : weekday === 6
                 ? "text-blue-500"
