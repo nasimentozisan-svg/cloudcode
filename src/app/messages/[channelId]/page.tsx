@@ -38,7 +38,7 @@ export default async function ChannelPage({
       where: { channelId },
       include: {
         author: { select: { id: true, name: true } },
-        reactions: { select: { emoji: true, userId: true } },
+        reactions: { select: { emoji: true, userId: true, user: { select: { name: true } } } },
         attachments: { select: { id: true, path: true, name: true, expiresAt: true } },
       },
       orderBy: { createdAt: "desc" },
