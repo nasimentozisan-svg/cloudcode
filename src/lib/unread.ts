@@ -9,7 +9,12 @@ export async function getUnreadChannelIds(
 ): Promise<Set<string>> {
   const [channels, reads] = await Promise.all([
     prisma.channel.findMany({
-      include: { categories: true, messages: { orderBy: { createdAt: "desc" }, take: 1 } },
+      include: {
+        categories: true,
+        members: { select: { userId: true } },
+        leaves: { select: { userId: true } },
+        messages: { orderBy: { createdAt: "desc" }, take: 1 },
+      },
     }),
     prisma.channelRead.findMany({ where: { userId: user.id } }),
   ]);

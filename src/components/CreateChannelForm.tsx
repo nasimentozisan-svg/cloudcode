@@ -7,7 +7,11 @@ import SubmitButton from "@/components/SubmitButton";
 
 const initialState: ActionState = {};
 
-export default function CreateChannelForm() {
+export default function CreateChannelForm({
+  allMembers,
+}: {
+  allMembers: { id: string; name: string }[];
+}) {
   const [state, formAction] = useActionState(createChannelAction, initialState);
   const [isGlobal, setIsGlobal] = useState(false);
 
@@ -54,6 +58,25 @@ export default function CreateChannelForm() {
           </label>
           <div className="mt-1">
             <CategoryCheckboxGroup />
+          </div>
+        </div>
+      )}
+
+      {!isGlobal && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            個別に招待するメンバー（任意）
+          </label>
+          <p className="mt-0.5 text-xs text-gray-400">
+            カテゴリーに関係なく、選んだ人だけを個別に招待できます
+          </p>
+          <div className="mt-1 max-h-48 overflow-y-auto rounded-md border border-gray-300 p-3">
+            {allMembers.map((m) => (
+              <label key={m.id} className="flex items-center gap-2 py-0.5 text-sm text-gray-700">
+                <input type="checkbox" name="memberIds" value={m.id} />
+                {m.name}
+              </label>
+            ))}
           </div>
         </div>
       )}

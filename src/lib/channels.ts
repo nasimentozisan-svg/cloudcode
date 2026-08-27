@@ -36,11 +36,21 @@ export async function ensureDefaultChannels() {
 
 export function canAccessChannel(
   user: { id: string; isAdmin: boolean; categories: { category: Category }[] },
-  channel: { isGlobal: boolean; createdById: string | null; categories: { category: Category }[] }
+  channel: {
+    isGlobal: boolean;
+    createdById: string | null;
+    categories: { category: Category }[];
+    members: { userId: string }[];
+    leaves: { userId: string }[];
+  }
 ): boolean {
   if (user.isAdmin) return true;
-  if (channel.isGlobal) return true;
   if (channel.createdById === user.id) return true;
+  // An individual invite always grants access (so re-inviting someone who
+  // left works), checked before the leave record so it takes priority.
+  if (channel.members.some((m) => m.userId === user.id)) return true;
+  if (channel.leaves.some((l) => l.userId === user.id)) return false;
+  if (channel.isGlobal) return true;
   const userCategories = new Set(user.categories.map((c) => c.category));
   return channel.categories.some((c) => userCategories.has(c.category));
 }

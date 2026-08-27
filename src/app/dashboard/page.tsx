@@ -58,7 +58,12 @@ export default async function DashboardPage() {
         await ensureDefaultChannels();
         const [allChannels, unread] = await Promise.all([
           prisma.channel.findMany({
-            include: { categories: true, _count: { select: { messages: true } } },
+            include: {
+              categories: true,
+              members: { select: { userId: true } },
+              leaves: { select: { userId: true } },
+              _count: { select: { messages: true } },
+            },
             orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
           }),
           getUnreadChannelIds(user),

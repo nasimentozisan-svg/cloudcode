@@ -38,18 +38,27 @@ export async function createChannelAction(
     description: formData.get("description"),
     isGlobal: formData.get("isGlobal") === "on",
     categories: formData.getAll("categories"),
+    memberIds: formData.getAll("memberIds"),
   });
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "入力内容を確認してください" };
   }
 
-  const { name, description, isGlobal, categories } = parsed.data;
+  const { name, description, isGlobal, categories, memberIds } = parsed.data;
 
   const existing = await prisma.channel.findUnique({ where: { name } });
   if (existing) {
     return { error: "そのチャンネル名は既に使われています" };
   }
+
+  // Cross-check against real users rather than trusting the submitted IDs
+  // outright, and drop the creator (who already has access as the owner).
+  const invitable = memberIds.filter((id) => id !== user.id);
+  const validMembers =
+    invitable.length > 0
+      ? await prisma.user.findMany({ where: { id: { in: invitable } }, select: { id: true } })
+      : [];
 
   const channel = await prisma.channel.create({
     data: {
@@ -60,6 +69,7 @@ export async function createChannelAction(
       categories: isGlobal
         ? undefined
         : { create: (categories as Category[]).map((category) => ({ category })) },
+      members: { create: validMembers.map((m) => ({ userId: m.id })) },
     },
   });
 
@@ -101,7 +111,11 @@ export async function postMessageAction(
 
   const channel = await prisma.channel.findUnique({
     where: { id: channelId },
-    include: { categories: true },
+    include: {
+      categories: true,
+      members: { select: { userId: true } },
+      leaves: { select: { userId: true } },
+    },
   });
   if (!channel) throw new Error("チャンネルが見つかりません");
   if (!canAccessChannel(user, channel)) {
@@ -199,7 +213,15 @@ export async function toggleReactionAction(messageId: string, emoji: string) {
 
   const message = await prisma.message.findUnique({
     where: { id: messageId },
-    include: { channel: { include: { categories: true } } },
+    include: {
+      channel: {
+        include: {
+          categories: true,
+          members: { select: { userId: true } },
+          leaves: { select: { userId: true } },
+        },
+      },
+    },
   });
   if (!message) throw new Error("メッセージが見つかりません");
   if (!canAccessChannel(user, message.channel)) {
@@ -216,6 +238,24 @@ export async function toggleReactionAction(messageId: string, emoji: string) {
   }
 
   revalidatePath(`/messages/${message.channelId}`);
+}
+
+export async function leaveChannelAction(channelId: string) {
+  const user = await getCurrentUser();
+  if (!user) throw new Error("ログインが必要です");
+
+  const channel = await prisma.channel.findUnique({ where: { id: channelId } });
+  if (!channel) return;
+  if (channel.isDefault) throw new Error("デフォルトのチャンネルから退出することはできません");
+
+  await prisma.channelMember.deleteMany({ where: { channelId, userId: user.id } });
+  await prisma.channelLeave.upsert({
+    where: { channelId_userId: { channelId, userId: user.id } },
+    create: { channelId, userId: user.id },
+    update: {},
+  });
+
+  revalidatePath("/messages");
 }
 
 export async function deleteChannelAction(channelId: string) {

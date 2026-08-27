@@ -58,6 +58,8 @@ model User {
   channelReads              ChannelRead[]
   eventReads                EventRead[]
   messageReactions          MessageReaction[]
+  channelMemberships        ChannelMember[]
+  channelLeaves             ChannelLeave[]
 }
 
 model PushSubscription {
@@ -192,7 +194,39 @@ model Channel {
   categories  ChannelCategory[]
   messages    Message[]
   reads       ChannelRead[]
+  members     ChannelMember[]
+  leaves      ChannelLeave[]
   createdAt   DateTime          @default(now())
+}
+
+// An individually-invited member of a non-default channel - grants access
+// on top of (or regardless of) category membership. Only meaningful for
+// channels people create themselves; the 4 built-in default channels stay
+// purely category/global-based.
+model ChannelMember {
+  id        String   @id @default(cuid())
+  channelId String
+  userId    String
+  createdAt DateTime @default(now())
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, userId])
+}
+
+// Recorded when a member leaves a channel they'd otherwise have access to
+// via category/global membership, so that access stays revoked instead of
+// silently reappearing on the next page load. Superseded by a ChannelMember
+// row (re-invited members regain access) - see canAccessChannel.
+model ChannelLeave {
+  id        String   @id @default(cuid())
+  channelId String
+  userId    String
+  createdAt DateTime @default(now())
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, userId])
 }
 
 model ChannelRead {

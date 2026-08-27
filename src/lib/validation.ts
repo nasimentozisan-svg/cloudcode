@@ -90,11 +90,15 @@ export const createChannelSchema = z
       .transform((v) => (v && v.length > 0 ? v : undefined)),
     isGlobal: z.boolean(),
     categories: z.array(categoryEnum),
+    memberIds: z.array(z.string()),
   })
-  .refine((data) => data.isGlobal || data.categories.length > 0, {
-    message: "「全体」を選ぶか、対象カテゴリーを1つ以上選択してください",
-    path: ["categories"],
-  });
+  .refine(
+    (data) => data.isGlobal || data.categories.length > 0 || data.memberIds.length > 0,
+    {
+      message: "「全体」を選ぶか、対象カテゴリーか招待するメンバーを1つ以上選択してください",
+      path: ["categories"],
+    }
+  );
 
 export const matchResultSchema = z.object({
   opponent: z.string().trim().min(1, "対戦相手を入力してください").max(100),

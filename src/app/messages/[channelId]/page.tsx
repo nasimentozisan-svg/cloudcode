@@ -12,6 +12,7 @@ import MessageReactions from "@/components/MessageReactions";
 import PollRefresh from "@/components/PollRefresh";
 import ScrollToBottomAnchor from "@/components/ScrollToBottomAnchor";
 import ChannelDeleteButton from "@/components/ChannelDeleteButton";
+import ChannelLeaveButton from "@/components/ChannelLeaveButton";
 import MessageDeleteButton from "@/components/MessageDeleteButton";
 
 export default async function ChannelPage({
@@ -28,7 +29,11 @@ export default async function ChannelPage({
 
   const channel = await prisma.channel.findUnique({
     where: { id: channelId },
-    include: { categories: true },
+    include: {
+      categories: true,
+      members: { select: { userId: true } },
+      leaves: { select: { userId: true } },
+    },
   });
   if (!channel) notFound();
   if (!canAccessChannel(user, channel)) redirect("/messages");
@@ -90,6 +95,9 @@ export default async function ChannelPage({
         <h2 className="text-lg font-bold text-gray-900"># {channel.name}</h2>
         {!channel.isDefault && (user.isAdmin || channel.createdById === user.id) && (
           <ChannelDeleteButton channelId={channel.id} channelName={channel.name} />
+        )}
+        {!channel.isDefault && !user.isAdmin && channel.createdById !== user.id && (
+          <ChannelLeaveButton channelId={channel.id} channelName={channel.name} />
         )}
       </div>
       {channel.description && (
