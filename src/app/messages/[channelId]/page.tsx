@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { waitUntil } from "@vercel/functions";
 import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import { canAccessChannel, ensureDefaultChannels } from "@/lib/channels";
@@ -61,11 +62,17 @@ export default async function ChannelPage({
   // Marks the channel read so the nav's unread dot clears - runs on every
   // visit (including the 8s poll refresh below) rather than tracking scroll
   // position, since "opened the channel" is a good enough proxy for "seen".
-  await prisma.channelRead.upsert({
-    where: { userId_channelId: { userId: user.id, channelId } },
-    create: { userId: user.id, channelId },
-    update: { lastReadAt: new Date() },
-  });
+  // Backgrounded via waitUntil() instead of awaited: it doesn't gate anything
+  // shown on this render (this user's own read receipt isn't reflected back
+  // to themselves), so blocking the response on it just adds a write to the
+  // critical path of the app's busiest, most-polled page for no benefit.
+  waitUntil(
+    prisma.channelRead.upsert({
+      where: { userId_channelId: { userId: user.id, channelId } },
+      create: { userId: user.id, channelId },
+      update: { lastReadAt: new Date() },
+    })
+  );
 
   // LINE-style read counts: since we only track each member's last visit
   // (not per-message), a message counts as "read" by anyone whose last
