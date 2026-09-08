@@ -26,7 +26,7 @@ export async function notifyRecipients(
     select: { lineUserId: true },
   });
 
-  await Promise.allSettled([
+  const [, , lineResults] = await Promise.allSettled([
     sendNotificationEmails(emailRecipients, email.subject, email.html),
     sendPushToUsers(userIds, push),
     sendLineMessages(
@@ -34,4 +34,15 @@ export async function notifyRecipients(
       lineText
     ),
   ]);
+
+  // Nothing here identifies which user succeeded or failed (that would mean
+  // logging lineUserId, which counts as personal data) - just enough to see
+  // in Vercel logs whether LINE delivery is actually working, and to notice
+  // "target N, linked M" gaps (people who should be notified but never
+  // finished linking their LINE account).
+  const succeeded =
+    lineResults.status === "fulfilled" ? lineResults.value.filter((r) => r.ok).length : 0;
+  console.log(
+    `[notify] LINE: target=${recipients.length} linked=${lineLinked.length} succeeded=${succeeded} failed=${lineLinked.length - succeeded}`
+  );
 }
