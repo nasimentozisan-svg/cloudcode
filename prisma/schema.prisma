@@ -38,6 +38,10 @@ model User {
   name                      String
   uniformNumber             Int?
   cardImagePath             String?
+  // Both read off the JFA roster PDF at upload time (parseRosterPdf), same
+  // as uniformNumber/cardImagePath - not entered manually.
+  registrationNumber        String?
+  birthDate                 DateTime?
   shirtSize                 UniformSize?
   pantsSize                 UniformSize?
   jerseySize                UniformSize?
@@ -82,12 +86,14 @@ model UserCategory {
 }
 
 model PendingCardImage {
-  id            String   @id @default(cuid())
-  filePath      String
-  name          String
-  uniformNumber Int?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                 String    @id @default(cuid())
+  filePath           String
+  name               String
+  uniformNumber      Int?
+  registrationNumber String?
+  birthDate          DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 }
 
 enum AttendanceStatus {

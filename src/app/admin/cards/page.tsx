@@ -48,6 +48,8 @@ export default async function AdminCardsPage() {
             imageUrl: p.filePath,
             name: p.name,
             uniformNumber: p.uniformNumber,
+            registrationNumber: p.registrationNumber,
+            birthDate: p.birthDate,
           }))}
           users={users}
         />

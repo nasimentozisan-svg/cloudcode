@@ -54,6 +54,8 @@ export async function processRosterUploadsAction(
         data: {
           cardImagePath: blob.url,
           uniformNumber: entry.uniformNumber,
+          registrationNumber: entry.registrationNumber,
+          birthDate: entry.birthDate,
         },
       });
       // A name that was unmatched in an earlier upload (before that
@@ -88,10 +90,14 @@ export async function processRosterUploadsAction(
           filePath: blob.url,
           name: entry.name,
           uniformNumber: entry.uniformNumber,
+          registrationNumber: entry.registrationNumber,
+          birthDate: entry.birthDate,
         },
         update: {
           filePath: blob.url,
           uniformNumber: entry.uniformNumber,
+          registrationNumber: entry.registrationNumber,
+          birthDate: entry.birthDate,
         },
       });
       pending++;
@@ -165,6 +171,8 @@ export async function assignPendingCardAction(pendingId: string, userId: string)
     data: {
       cardImagePath: copied.url,
       uniformNumber: pendingImage.uniformNumber,
+      registrationNumber: pendingImage.registrationNumber,
+      birthDate: pendingImage.birthDate,
     },
   });
   await prisma.pendingCardImage.delete({ where: { id: pendingId } });

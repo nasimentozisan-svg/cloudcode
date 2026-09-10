@@ -9,6 +9,8 @@ type PendingItem = {
   imageUrl: string;
   name: string;
   uniformNumber: number | null;
+  registrationNumber: string | null;
+  birthDate: Date | null;
 };
 
 type UserOption = {
@@ -65,6 +67,13 @@ export default function PendingCardsList({
               名簿の記載: {item.name}
               {item.uniformNumber != null && `（背番号${item.uniformNumber}）`}
             </p>
+            {(item.registrationNumber || item.birthDate) && (
+              <p className="text-xs text-gray-400">
+                {item.registrationNumber && `登録番号: ${item.registrationNumber}`}
+                {item.registrationNumber && item.birthDate && " / "}
+                {item.birthDate && `生年月日: ${item.birthDate.toLocaleDateString("ja-JP", { timeZone: "UTC" })}`}
+              </p>
+            )}
             <p className="text-xs text-gray-400">
               登録メンバーに一致する名前が見つかりませんでした。未登録か、名前の表記が違う可能性があります。
             </p>

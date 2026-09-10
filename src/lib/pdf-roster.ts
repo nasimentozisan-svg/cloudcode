@@ -24,12 +24,23 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = path.join(currentDir, "pdf-worker", "pd
 export type RosterEntry = {
   name: string;
   uniformNumber: number | null;
+  registrationNumber: string | null;
+  birthDate: Date | null;
   photo: Buffer;
 };
 
 // Furigana rows are pure katakana; kanji/hiragana names never are, which is
 // what distinguishes a name row from the furigana row directly below it.
 const KATAKANA_ONLY = /^[゠-ヿー\s]+$/;
+
+// 選手登録番号 (e.g. "F000112083") sits on the exact same row as the name,
+// in the right-hand column - confirmed against a real JFA "登録選手一覧"
+// export (both start with a single letter followed by digits).
+const REGISTRATION_NUMBER_PATTERN = /^[A-Za-z]\d{4,}$/;
+// 生年月日 sits two rows above the name row, same left column as the name's
+// own surname/furigana. Anchored (no trailing text) so it doesn't match
+// 有効期間 in the same column, which is formatted "2026/04/01～".
+const BIRTH_DATE_PATTERN = /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/;
 
 // JFA "登録選手一覧" roster PDFs render as a fixed table: a JFA logo once
 // per page, then one row per player with 背番号 (jersey number) in a narrow
@@ -75,7 +86,13 @@ export async function parseRosterPdf(buffer: Buffer): Promise<RosterEntry[]> {
     // player's name/jersey number/photo reference. Kept sequential since
     // it's fast and each iteration depends on the previous anchor's end
     // index.
-    const playerMetas: { name: string; jerseyNumber: number; photoName: string }[] = [];
+    const playerMetas: {
+      name: string;
+      jerseyNumber: number;
+      registrationNumber: string | null;
+      birthDate: Date | null;
+      photoName: string;
+    }[] = [];
     let prevEnd = -1;
     for (let a = 0; a < anchorIndexes.length; a++) {
       const anchorIdx = anchorIndexes[a];
@@ -92,6 +109,7 @@ export async function parseRosterPdf(buffer: Buffer): Promise<RosterEntry[]> {
       }
 
       let name = "";
+      let registrationNumber: string | null = null;
       for (const rowItems of rows.values()) {
         const inNameBand = rowItems.filter((it) => it.transform[4] >= 100 && it.transform[4] <= 150);
         if (inNameBand.length !== 2) continue;
@@ -101,14 +119,33 @@ export async function parseRosterPdf(buffer: Buffer): Promise<RosterEntry[]> {
           .sort((x1, x2) => x1.transform[4] - x2.transform[4])
           .map((it) => it.str)
           .join("");
+        // 選手登録番号 is the same row as the name, in the right-hand column.
+        const regItem = rowItems.find(
+          (it) => it.transform[4] >= 450 && REGISTRATION_NUMBER_PATTERN.test(it.str.trim())
+        );
+        if (regItem) registrationNumber = regItem.str.trim();
         break;
       }
       if (!name) continue;
 
+      let birthDate: Date | null = null;
+      for (const rowItems of rows.values()) {
+        const dateItem = rowItems.find((it) => {
+          const x = it.transform[4];
+          return x >= 95 && x <= 160 && BIRTH_DATE_PATTERN.test(it.str.trim());
+        });
+        if (!dateItem) continue;
+        const match = dateItem.str.trim().match(BIRTH_DATE_PATTERN);
+        if (!match) continue;
+        const [, year, month, day] = match;
+        birthDate = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+        break;
+      }
+
       const photoName = photoNames[a];
       if (!photoName) continue;
 
-      playerMetas.push({ name, jerseyNumber, photoName });
+      playerMetas.push({ name, jerseyNumber, registrationNumber, birthDate, photoName });
     }
 
     // Second pass: the actual slow work (pulling the raw embedded image out
@@ -136,6 +173,8 @@ export async function parseRosterPdf(buffer: Buffer): Promise<RosterEntry[]> {
         return {
           name: meta.name,
           uniformNumber: Number.isFinite(meta.jerseyNumber) ? meta.jerseyNumber : null,
+          registrationNumber: meta.registrationNumber,
+          birthDate: meta.birthDate,
           photo,
         };
       })

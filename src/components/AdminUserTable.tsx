@@ -91,6 +91,8 @@ export default function AdminUserTable({
               <th className="px-4 py-2">選手証</th>
               <th className="px-4 py-2">名前</th>
               <th className="px-4 py-2">背番号</th>
+              <th className="px-4 py-2">選手登録番号</th>
+              <th className="px-4 py-2">生年月日</th>
               <th className="px-4 py-2">ウェアサイズ（シャツ/パンツ/ジャージ）</th>
               <th className="px-4 py-2">出席率</th>
               <th className="px-4 py-2">カテゴリー</th>
@@ -119,6 +121,14 @@ export default function AdminUserTable({
                 <td className="whitespace-nowrap px-4 py-2 font-medium text-gray-900">{u.name}</td>
                 <td className="px-4 py-2 text-gray-500">
                   {u.uniformNumber ?? "-"}
+                </td>
+                <td className="px-4 py-2 whitespace-nowrap text-gray-500">
+                  {u.registrationNumber ?? "-"}
+                </td>
+                <td className="px-4 py-2 whitespace-nowrap text-gray-500">
+                  {u.birthDate
+                    ? u.birthDate.toLocaleDateString("ja-JP", { timeZone: "UTC" })
+                    : "-"}
                 </td>
                 <td className="px-4 py-2 whitespace-nowrap text-gray-500">
                   {[u.shirtSize, u.pantsSize, u.jerseySize]
