@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">EFK CAMERA</string>
+    <string name="match_name_hint">試合名（例：GRTIA CUP U18 vs ○○高校）</string>
+    <string name="record_start">🔴 録画開始</string>
+    <string name="record_stop">■ 録画停止</string>
+    <string name="choose_account">Google アカウントを選ぶ</string>
+    <string name="new_pin">PIN を作り直す</string>
+    <string name="unpair">ペアリング解除</string>
+    <string name="checklist">試合前チェックリスト</string>
+    <string name="preview_label">CAMERA PREVIEW</string>
+    <string name="pairing_label">操作端末からの接続</string>
+    <string name="uploads_label">録画・アップロード状況</string>
+    <string name="qr_description">操作画面を開くための QR コード</string>
+    <string name="preview_description">カメラのプレビュー</string>
+</resources>

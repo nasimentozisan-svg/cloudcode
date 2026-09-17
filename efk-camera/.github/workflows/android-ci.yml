@@ -1,0 +1,88 @@
+name: Android CI
+
+# 「ローカルでは動くが GitHub ではビルドできない」を防ぐための門番。
+# main へのマージ条件にこのワークフローを設定してください（README 参照）。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    name: Secret 混入チェック
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 自前の Secret チェック
+        run: bash scripts/check-secrets.sh
+
+      - name: gitleaks（補助。失敗しても CI は止めない）
+        continue-on-error: true
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build:
+    name: ビルド / テスト / Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ローカルの手順書と同じ JDK を使う（jvmToolchain(17) と揃える）
+      - name: JDK 17 をセットアップ
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android SDK をセットアップ
+        uses: android-actions/setup-android@v3
+
+      - name: Gradle をセットアップ（キャッシュ込み）
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: gradlew に実行権限を付与
+        run: chmod +x ./gradlew
+
+      - name: Lint
+        run: ./gradlew --no-daemon lintDebug
+
+      - name: Unit Test
+        run: ./gradlew --no-daemon testDebugUnitTest
+
+      - name: デバッグ APK をビルド
+        run: ./gradlew --no-daemon assembleDebug -PgitSha=${{ github.sha }}
+
+      - name: 依存関係の一覧を出力
+        if: always()
+        run: ./gradlew --no-daemon :app:dependencies --configuration debugRuntimeClasspath > dependencies.txt
+
+      - name: テスト結果を保存
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-and-lint-reports
+          path: |
+            app/build/reports/tests/
+            app/build/reports/lint-results-debug.html
+            dependencies.txt
+          retention-days: 14
+
+      - name: デバッグ APK を保存
+        uses: actions/upload-artifact@v4
+        with:
+          name: efk-camera-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14

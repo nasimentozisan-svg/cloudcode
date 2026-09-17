@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0E0F12">
+<title>EFK CAMERA</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<!-- ペアリング画面 -->
+<section id="pairView" class="view">
+  <h1 class="logo">EFK CAMERA</h1>
+  <p class="muted" id="pairDevice">接続先を確認しています…</p>
+  <div class="card">
+    <label class="label" for="pinInput">KYV47 の画面に出ている6桁の PIN</label>
+    <input id="pinInput" class="pin" type="tel" inputmode="numeric" maxlength="6"
+           autocomplete="one-time-code" placeholder="000000">
+    <button id="pairButton" class="btn btn-primary">接続する</button>
+    <p id="pairError" class="error"></p>
+  </div>
+</section>
+
+<!-- 操作画面 -->
+<section id="mainView" class="view hidden">
+  <header class="head">
+    <h1 class="logo">EFK CAMERA</h1>
+    <div class="devline">
+      <span id="deviceName">KYV47</span>
+      <span id="link" class="dot dot-ok">● 接続中</span>
+    </div>
+    <div class="stats">
+      <span>BATTERY <b id="battery">--</b></span>
+      <span>FREE <b id="free">--</b></span>
+      <span id="tempStat">TEMP <b id="temp">--</b></span>
+    </div>
+  </header>
+
+  <div id="warnings"></div>
+
+  <div class="card">
+    <label class="label" for="matchName">試合名</label>
+    <input id="matchName" type="text" class="text"
+           placeholder="GRTIA CUP U18 vs ○○高校" autocomplete="off">
+    <p class="muted small" id="titlePreview"></p>
+  </div>
+
+  <div class="card preview-card">
+    <div class="label-row">
+      <span class="label">CAMERA PREVIEW</span>
+      <button id="previewToggle" class="btn btn-tiny">表示</button>
+    </div>
+    <div id="previewBox" class="preview-box">
+      <span class="muted small" id="previewMsg">プレビューは停止しています</span>
+      <img id="preview" alt="">
+    </div>
+  </div>
+
+  <div class="timer" id="timer">00:00:00</div>
+  <div class="rec-badge hidden" id="recBadge">REC ●</div>
+
+  <button id="recButton" class="btn btn-record">🔴 録画開始</button>
+  <p class="muted small center" id="stopHint"></p>
+  <p id="actionError" class="error center"></p>
+
+  <div class="card">
+    <div class="label-row">
+      <span class="label">アップロード</span>
+      <button id="settingsToggle" class="btn btn-tiny">設定</button>
+    </div>
+    <div id="uploads"></div>
+  </div>
+
+  <div id="settings" class="card hidden">
+    <span class="label">撮影設定（録画中は変更できません）</span>
+
+    <label class="row"><span>解像度</span>
+      <select id="setQuality">
+        <option value="FHD">1080p</option>
+        <option value="HD">720p</option>
+      </select>
+    </label>
+
+    <label class="row"><span>映像の向き</span>
+      <select id="setOrientation">
+        <option value="LAND_A">横向き A</option>
+        <option value="LAND_B">横向き B（Aで上下逆のとき）</option>
+        <option value="PORTRAIT">縦向き</option>
+      </select>
+    </label>
+
+    <label class="row"><span>分割録画（保険）</span>
+      <select id="setSplit">
+        <option value="0">しない</option>
+        <option value="15">15分ごと</option>
+        <option value="10">10分ごと</option>
+      </select>
+    </label>
+
+    <label class="row"><span>音声を録る</span>
+      <input id="setAudio" type="checkbox">
+    </label>
+
+    <label class="row"><span>プレビューを使う</span>
+      <input id="setPreview" type="checkbox">
+    </label>
+
+    <label class="row"><span>Wi-Fi のときだけアップロード</span>
+      <input id="setWifiOnly" type="checkbox">
+    </label>
+
+    <button id="saveSettings" class="btn">設定を保存</button>
+    <p id="settingsError" class="error"></p>
+  </div>
+
+  <p class="muted small center" id="footer"></p>
+</section>
+
+<script src="/app.js"></script>
+</body>
+</html>

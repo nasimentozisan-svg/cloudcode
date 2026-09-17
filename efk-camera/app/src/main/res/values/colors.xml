@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="efk_bg">#FF0E0F12</color>
+    <color name="efk_surface">#FF1A1C21</color>
+    <color name="efk_text">#FFF2F3F5</color>
+    <color name="efk_muted">#FF9AA0AA</color>
+    <color name="efk_accent">#FFE8452C</color>
+    <color name="efk_warn">#FFF2B33D</color>
+    <color name="ic_launcher_background">#FF0E0F12</color>
+</resources>

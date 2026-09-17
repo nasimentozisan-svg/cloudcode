@@ -1,0 +1,73 @@
+name: Release APK
+
+# タグ v* を push すると、署名付き APK を作って GitHub Releases に添付する。
+#
+# 事前に Settings → Secrets and variables → Actions で以下を登録してください。
+#   ANDROID_KEYSTORE_BASE64   （efk-camera-release.jks を base64 にしたもの）
+#   ANDROID_KEYSTORE_PASSWORD
+#   ANDROID_KEY_ALIAS
+#   ANDROID_KEY_PASSWORD
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: 署名付き APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Secret チェック
+        run: bash scripts/check-secrets.sh
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+
+      - run: chmod +x ./gradlew
+
+      - name: 署名鍵を復元する
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "ANDROID_KEYSTORE_BASE64 が未設定です。Secrets を登録してください。" >&2
+            exit 1
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > efk-camera-release.jks
+          # ここで作るファイルは .gitignore 済み。ログにも出さない。
+          {
+            echo "storeFile=efk-camera-release.jks"
+            echo "storePassword=$STORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > keystore.properties
+
+      - name: テストと Lint
+        run: ./gradlew --no-daemon lintDebug testDebugUnitTest
+
+      - name: リリース APK をビルド
+        run: ./gradlew --no-daemon assembleRelease -PgitSha=${{ github.sha }}
+
+      - name: 署名鍵を消す
+        if: always()
+        run: rm -f efk-camera-release.jks keystore.properties
+
+      - name: Release に添付する
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app/build/outputs/apk/release/app-release.apk
+          generate_release_notes: true

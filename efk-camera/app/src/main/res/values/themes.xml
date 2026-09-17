@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Theme.EfkCamera" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="android:windowBackground">@color/efk_bg</item>
+        <item name="android:textColor">@color/efk_text</item>
+        <item name="colorPrimary">@color/efk_accent</item>
+        <item name="android:statusBarColor" tools:targetApi="21">@color/efk_bg</item>
+    </style>
+</resources>
