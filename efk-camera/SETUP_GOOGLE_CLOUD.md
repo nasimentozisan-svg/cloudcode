@@ -82,29 +82,23 @@
 
 ## ステップ6：Android の OAuth クライアントを作る（★ここが要）
 
-先に、PC のターミナルで**署名の SHA-1 を2つ**取得します。
+必要なのは **SHA-1 をひとつ**だけです。
+
+`keystore.properties` を置いてビルドすると、debug も release も同じ鍵で署名されるように
+してあるので、登録する SHA-1 は1つで済みます。
 
 ```bash
 cd efk-camera
 ./gradlew signingReport
 ```
 
-出力の中から次の2つを控えてください。
+出力の `Variant: release` の `SHA1:` の値を控えてください。
 
-```
-Variant: debug
-  ...
-  SHA1: AA:BB:CC:...          ← ①これ
+> `keystore.properties` を置かずにビルドした場合だけ、debug が Android Studio の
+> 自動生成鍵になり SHA-1 が変わります。その場合は `Variant: debug` の SHA-1 も
+> 同じ手順でもう1件登録してください。
 
-Variant: release
-  ...
-  SHA1: DD:EE:FF:...          ← ②これ
-```
-
-> `Variant: release` が出てこない場合は、先に README の
-> 「初回だけ：署名鍵を作る」を実行してから、もう一度 `signingReport` を実行してください。
-
-次に Google Cloud で登録します。**①と②の2回、同じ作業を繰り返します。**
+Google Cloud で登録します。
 
 1. 左メニュー「APIとサービス」→「認証情報」
 2. 「+ 認証情報を作成」→「OAuth クライアント ID」
@@ -113,22 +107,18 @@ Variant: release
    | 項目 | 入力する値 |
    |---|---|
    | アプリケーションの種類 | `Android` |
-   | 名前 | `EFK CAMERA (debug)` / 2回目は `EFK CAMERA (release)` |
+   | 名前 | `EFK CAMERA` |
    | パッケージ名 | `jp.efk.camera` |
-   | SHA-1 証明書フィンガープリント | ① / 2回目は ② |
+   | SHA-1 証明書フィンガープリント | 上で控えた値 |
 
 4. 「作成」→「OK」
 
-> **なぜ2つ必要か**
+> **なぜ SHA-1 が要るのか**
 > Android の OAuth は「パッケージ名 + 署名の SHA-1」で本人確認します。
-> debug ビルドと release ビルドでは署名鍵が違うため SHA-1 も変わります。
-> 片方しか登録しないと、**「テストでは動いたのに本番 APK にしたら認証だけ失敗する」**
-> という原因の分かりにくい事故が起きます。
+> 署名鍵が変わると SHA-1 も変わり、認証だけが失敗するようになります。
 
 > **クライアントシークレットは発行されません。** Android 型はそういう仕様です。
 > つまり **アプリにもリポジトリにも、秘密にすべき文字列は一切入りません。**
-
----
 
 ## ステップ7：アプリで動作確認する
 
@@ -207,7 +197,7 @@ YouTube Data API は 1日あたりの利用量に上限があります。
 
 | 症状 | 見るところ |
 |---|---|
-| アカウント選択後に認証が通らない | ステップ6の SHA-1。`./gradlew signingReport` の値と一致しているか |
+| アカウント選択後に認証が通らない | ステップ6の SHA-1。`./gradlew signingReport` の値と一致しているか。インストールした APK と同じ鍵で署名されたものか |
 | `403 accessNotConfigured` | ステップ2。API が有効になっているか |
 | `403 insufficientPermissions` | ステップ4。スコープが2つとも入っているか |
 | 同意画面で弾かれる | ステップ5。テストユーザーに入っているか |

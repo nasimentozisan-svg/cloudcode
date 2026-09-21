@@ -63,6 +63,13 @@ android {
         }
         debug {
             isMinifyEnabled = false
+            // ★ keystore.properties があれば debug も同じ鍵で署名する。
+            //    debug と release で署名が変わると SHA-1 も変わり、Google Cloud に
+            //    2つ登録する必要が出て、片方を忘れると「release だけ認証が失敗する」
+            //    という分かりにくい事故になる。鍵を1つに揃えてそれを防ぐ。
+            if (hasReleaseKeystore) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 

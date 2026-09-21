@@ -209,7 +209,7 @@ USB が使えない場合は APK を KYV47 へ転送し、「提供元不明の�
 | `Failed to install the following SDK components: platforms;android-35` | Android Studio の SDK Manager で **Android 15 (API 35)** を入れてください |
 | `Unsupported class file major version` | JDK 17 を使ってください（`./gradlew -version` で確認） |
 | `Unresolved reference: setTargetVideoEncodingBitRate` | CameraX が古い可能性。`gradle/libs.versions.toml` の `camerax` が `1.4.1` か確認してください |
-| Google 認証だけ失敗する | debug と release で署名 SHA-1 が違います。**両方**を Google Cloud に登録してください（下記） |
+| Google 認証だけ失敗する | インストールした APK の署名 SHA-1 が Google Cloud に登録されていません（下記） |
 
 ### 署名 SHA-1 の確認
 
@@ -217,8 +217,9 @@ USB が使えない場合は APK を KYV47 へ転送し、「提供元不明の�
 ./gradlew signingReport
 ```
 
-`Variant: debug` と `Variant: release` の SHA1 を **両方**
-Google Cloud の OAuth クライアントに登録します（SETUP_GOOGLE_CLOUD.md ステップ6）。
+`keystore.properties` を置いてビルドすれば debug も release も同じ鍵で署名されるので、
+登録する SHA-1 は **`Variant: release` のひとつだけ**で済みます
+（SETUP_GOOGLE_CLOUD.md ステップ6）。
 
 ---
 
