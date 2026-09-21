@@ -15,6 +15,7 @@ KYV47 で撮影  →  操作端末から録画開始  →  20〜40分連続録�
 - Google 側の設定手順：[SETUP_GOOGLE_CLOUD.md](SETUP_GOOGLE_CLOUD.md)
 - 試合当日の運用手順：[OPERATIONS.md](OPERATIONS.md)
 - セキュリティと Secrets の方針：[SECURITY.md](SECURITY.md)
+- ブラウザ操作が必要な工程の引き継ぎ：[docs/BROWSER_AI_HANDOFF.md](docs/BROWSER_AI_HANDOFF.md)
 
 ---
 
