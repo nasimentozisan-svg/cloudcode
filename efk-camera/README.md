@@ -31,34 +31,62 @@ KYV47 で撮影  →  操作端末から録画開始  →  20〜40分連続録�
 
 ## 検証済みの範囲（2026-09-21 時点）
 
-開発環境から `dl.google.com` / `maven.google.com` へ到達できないため Android SDK と
-AndroidX を取得できません。そこで、取得可能な範囲で実際にコンパイル・実行して検証しました。
+開発環境から `dl.google.com` / `maven.google.com` へ到達できないため、Gradle による
+正式なビルド（Lint・リソース・APK 生成）は実行できていません。
+そのため、到達できるものはすべて**本物を取ってきて**検証しました。
 
-| 範囲 | 状態 | 方法 |
-|---|---|---|
-| コアロジック9クラス | ✅ **コンパイル成功 + テスト55件すべて通過** | Kotlin 2.0.21 + JUnit 4.13.2 を JVM 上で実行 |
-| `ControlServer`（端末内HTTPサーバ） | ✅ 型検査通過 | **本物の** NanoHTTPD 2.3.1 に対して |
-| `YouTubeUploader`（再開可能アップロード） | ✅ 型検査通過 | **本物の** OkHttp 4.12.0 / Okio に対して |
-| `VideoStore` / `Prefs` / `AppState` / `AuthTokens` / `PreviewHub` / `OrphanScanner` / `GoogleAuthManager` / `QrCode` | ✅ 型検査通過 | 本物の org.json / kotlinx-coroutines / ZXing に対して |
-| `CameraController` / `EfkCameraService` / `UploadWorker` / `UploadScheduler` / `MainActivity` / `EfkApp` | ⚠️ **型検査 未実施** | CameraX・WorkManager・AppCompat を取得できないため。**構文エラー0件**と**自作クラス間の参照ミス0件**は確認済み |
-| Lint / リソース / マニフェスト | ⚠️ 未実施 | Android SDK が必要 |
-| 実機動作（40分録画・アップロード） | ⚠️ 未実施 | KYV47 が必要 |
+| 範囲 | 状態 |
+|---|---|
+| **Kotlin 全40ファイルのコンパイル** | ✅ **エラー0件** |
+| **Unit Test 55件** | ✅ **すべて通過** |
+| Android フレームワーク API の使い方 | ✅ **本物**（Robolectric の android-all = Android 15）に対して検証 |
+| `ControlServer` の NanoHTTPD 利用 | ✅ **本物の** NanoHTTPD 2.3.1 に対して検証 |
+| `YouTubeUploader` の OkHttp 利用 | ✅ **本物の** OkHttp 4.12.0 / Okio に対して検証 |
+| org.json / kotlinx-coroutines / ZXing の利用 | ✅ 本物に対して検証 |
+| AndroidX の API 署名 20件 | ✅ androidx 公式ソースと**1件ずつ照合** |
+| AndroidX に対する型検査 | ⚠️ 形を再現したスタブ経由。**自分たちのコードの整合性**は検証できているが、AndroidX 側の署名の正しさは上記の照合で担保 |
+| Lint / リソース / マニフェスト / APK | ❌ 未実施（Android SDK が必要） |
+| 実機動作（40分録画・アップロード） | ❌ 未実施（KYV47 が必要） |
+
+### 照合した AndroidX API（抜粋）
+
+`Recorder.Builder.setTargetVideoEncodingBitRate` / `OutputOptions.Builder.setFileSizeLimit` /
+`setDurationLimitMillis` / `QualitySelector.from(Quality, FallbackStrategy)` /
+`FallbackStrategy.lowerQualityOrHigherThan` / `Recorder.prepareRecording(Context, FileOutputOptions)` /
+`PendingRecording.withAudioEnabled()` / `PendingRecording.start(Executor, Consumer)` /
+`ImageProxy.toBitmap()` / `ResolutionStrategy(Size, Int)` /
+`FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER` / `VideoRecordEvent.Finalize.ERROR_*` 9種 /
+`ForegroundInfo` の2引数・3引数 / `CoroutineWorker.setForeground` /
+`ServiceCompat.startForeground` / `ContextCompat.RECEIVER_NOT_EXPORTED` /
+`LifecycleService` / `repeatOnLifecycle`
+
+> **ひとつだけ残る不確実性**：照合したのは androidx の `androidx-main` ブランチです。
+> 固定しているバージョン（CameraX 1.4.1 / WorkManager 2.9.1）に確実に含まれるかまでは
+> 確認できていません。万一欠けていた場合は「Unresolved reference」の1行エラーになるので、
+> `gradle/libs.versions.toml` のバージョンを上げれば解決します。
 
 ### この検証で実際に見つけて直した不具合
 
-| 箇所 | 内容 |
-|---|---|
-| `Redactor.redact()` | `var out = message` が `String?` と推論され**コンパイルが通らなかった**。ログのマスク処理そのものなので、見逃していたらビルドが止まっていた |
-| `FmtTest` のサンプル時刻 | テスト側の定数が JST 12:00 のつもりで 16:00 だった（製品コードは正しい） |
-| `StoragePlanner` のファイル上限 | 60分録画が3.5GBの上限を超える計算だったため、3.9e9バイト（約3.63GiB）へ修正 |
+| # | 箇所 | 内容 |
+|---|---|---|
+| 1 | `MainActivity` の `findViewById` | `Activity.findViewById` は `@Nullable` なので Kotlin では `T?` が返る。**実機ビルドで確実にコンパイルエラーになっていた**（15箇所）。`requireView()` ヘルパー経由に変更 |
+| 2 | `Redactor.redact()` | `var out = message` が `String?` と推論され**コンパイルが通らなかった**。ログのマスク処理そのもの |
+| 3 | `StoragePlanner` のファイル上限 | 60分録画が上限3.5GBを超える計算だった。3.9e9バイト（約3.63GiB）へ修正 |
+| 4 | `FmtTest` のサンプル時刻 | テスト側の定数が JST 12:00 のつもりで 16:00 だった（製品コードは正しい） |
 
-### 手元で同じ検証をする
+### 手元で検証する
 
-Android Studio があるなら、CI と同じコマンドが最も確実です。
+Android Studio があるなら、CI と同じコマンドが正式な検証です。
 
 ```bash
 bash scripts/check-secrets.sh
 ./gradlew lintDebug testDebugUnitTest assembleDebug
+```
+
+Android SDK が使えない環境では、上と同じ検証を再現できます。
+
+```bash
+bash tools/jvm-verify/run.sh
 ```
 
 ---

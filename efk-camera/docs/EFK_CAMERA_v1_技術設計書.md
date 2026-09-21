@@ -44,13 +44,14 @@ Gradle による完全なビルド・Lint・実機動作確認は行えていま
 
 | 範囲 | 状態 |
 |---|---|
-| コアロジック9クラス | ✅ **コンパイル成功 + Unit Test 55件すべて通過** |
-| サーバ層・アップロード層・保存層 | ✅ **本物の NanoHTTPD / OkHttp / ZXing / org.json に対して型検査通過** |
-| CameraX・WorkManager・UI 層（6ファイル） | ⚠️ 型検査未実施（ライブラリを取得できないため）。構文エラー0件・自作クラス参照ミス0件は確認済み |
-| Lint・リソース・実機動作 | ⚠️ 未実施 |
+| Kotlin 全40ファイルのコンパイル | ✅ **エラー0件** |
+| Unit Test 55件 | ✅ **すべて通過** |
+| Android フレームワーク / NanoHTTPD / OkHttp / ZXing の利用 | ✅ **本物のライブラリ**に対して検証 |
+| AndroidX の API 署名20件 | ✅ androidx 公式ソースと1件ずつ照合 |
+| Lint・リソース・APK 生成・実機動作 | ❌ 未実施（Android SDK / KYV47 が必要） |
 
-詳細と、この検証で見つけて直した不具合3件は `efk-camera/README.md` の
-「検証済みの範囲」にまとめてあります。
+詳細と、この検証で見つけて直した不具合4件は `efk-camera/README.md` の
+「検証済みの範囲」にまとめてあります。検証は `tools/jvm-verify/run.sh` で再現できます。
 
 **最初の完全なビルドはつるさんの Android Studio、または GitHub Actions 上で
 行っていただく必要があります。** CI が赤くなった場合はログを共有いただければ

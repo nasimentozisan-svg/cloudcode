@@ -31,3 +31,4 @@ captures/
 *.iml
 .DS_Store
 Thumbs.db
+.jvm-verify-cache/

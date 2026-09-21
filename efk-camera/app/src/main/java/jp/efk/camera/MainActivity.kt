@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.os.SystemClock
+import android.view.View
 import android.provider.Settings
 import android.widget.Button
 import android.widget.EditText
@@ -112,30 +113,38 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * `Activity.findViewById` は @Nullable（= Kotlin では T? が返る）なので、
+     * レイアウトに必ずあるビューはここを通して取り出す。
+     * id とレイアウトが食い違ったら、その場で分かるように落とす。
+     */
+    private fun <T : View> requireView(id: Int): T =
+        findViewById<T>(id) ?: error("レイアウトに id が見つかりません: $id")
+
     private fun bindViews() {
-        statusText = findViewById(R.id.statusText)
-        urlText = findViewById(R.id.urlText)
-        pinText = findViewById(R.id.pinText)
-        qrImage = findViewById(R.id.qrImage)
-        previewImage = findViewById(R.id.previewImage)
-        elapsedText = findViewById(R.id.elapsedText)
-        matchInput = findViewById(R.id.matchInput)
-        recordButton = findViewById(R.id.recordButton)
-        accountText = findViewById(R.id.accountText)
-        warningText = findViewById(R.id.warningText)
-        uploadsText = findViewById(R.id.uploadsText)
+        statusText = requireView(R.id.statusText)
+        urlText = requireView(R.id.urlText)
+        pinText = requireView(R.id.pinText)
+        qrImage = requireView(R.id.qrImage)
+        previewImage = requireView(R.id.previewImage)
+        elapsedText = requireView(R.id.elapsedText)
+        matchInput = requireView(R.id.matchInput)
+        recordButton = requireView(R.id.recordButton)
+        accountText = requireView(R.id.accountText)
+        warningText = requireView(R.id.warningText)
+        uploadsText = requireView(R.id.uploadsText)
 
         recordButton.setOnClickListener { onRecordButton() }
 
-        findViewById<Button>(R.id.accountButton).setOnClickListener {
+        requireView<Button>(R.id.accountButton).setOnClickListener {
             accountLauncher.launch(auth.chooseAccountIntent())
         }
-        findViewById<Button>(R.id.newPinButton).setOnClickListener {
+        requireView<Button>(R.id.newPinButton).setOnClickListener {
             tokens.regeneratePin()
             toast("PIN を作り直しました")
             render(AppState.current)
         }
-        findViewById<Button>(R.id.unpairButton).setOnClickListener {
+        requireView<Button>(R.id.unpairButton).setOnClickListener {
             AlertDialog.Builder(this)
                 .setTitle("ペアリングを全部解除しますか？")
                 .setMessage("すべての操作端末で、もう一度 PIN の入力が必要になります。")
@@ -147,7 +156,7 @@ class MainActivity : AppCompatActivity() {
                 .setNegativeButton("やめる", null)
                 .show()
         }
-        findViewById<Button>(R.id.checklistButton).setOnClickListener { showChecklist() }
+        requireView<Button>(R.id.checklistButton).setOnClickListener { showChecklist() }
     }
 
     private fun requestPermissions() {
