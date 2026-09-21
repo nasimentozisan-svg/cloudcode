@@ -16,6 +16,16 @@ object StoragePlanner {
      */
     const val MAX_PART_BYTES = 3_900_000_000L
 
+    /**
+     * 1080p30 の既定ビットレート。
+     * 端末既定（17〜20Mbps）のままだと40分で4GiBの壁に当たるため明示的に落としている。
+     * 40分で約2.4GB（設計書 2.2）。
+     */
+    const val DEFAULT_BITRATE_FHD = 8_000_000
+
+    /** 720p30 の既定ビットレート。40分で約1.5GB。 */
+    const val DEFAULT_BITRATE_HD = 5_000_000
+
     /** 音声込みの実効ビットレート（映像 + AAC 128kbps + コンテナのオーバーヘッド）。 */
     fun effectiveBitsPerSecond(videoBitrateBps: Int, audioEnabled: Boolean): Long {
         val audio = if (audioEnabled) 128_000L else 0L

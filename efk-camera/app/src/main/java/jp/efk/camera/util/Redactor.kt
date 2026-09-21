@@ -27,8 +27,9 @@ object Redactor {
 
     /** 任意の文字列から秘密情報を落とす。 */
     fun redact(message: String?): String {
-        if (message.isNullOrEmpty()) return ""
-        var out = message
+        val input = message ?: return ""
+        if (input.isEmpty()) return ""
+        var out: String = input
         for ((re, replacement) in PATTERNS) {
             out = re.replace(out, replacement)
         }

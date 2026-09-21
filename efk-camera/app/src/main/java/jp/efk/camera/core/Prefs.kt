@@ -3,6 +3,7 @@ package jp.efk.camera.core
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Build
+import jp.efk.camera.util.StoragePlanner
 
 /**
  * 設定の永続化。
@@ -94,11 +95,9 @@ class Prefs private constructor(context: Context) {
         const val O_LAND_B = "LAND_B"
         const val O_PORTRAIT = "PORTRAIT"
 
-        /** 1080p30。40分で約2.4GB（設計書 2.2）。 */
-        const val DEFAULT_BITRATE_FHD = 8_000_000
-
-        /** 720p30。40分で約1.5GB。 */
-        const val DEFAULT_BITRATE_HD = 5_000_000
+        /** 実体は StoragePlanner 側（Android に依存しないので Unit Test で検証できる）。 */
+        const val DEFAULT_BITRATE_FHD = StoragePlanner.DEFAULT_BITRATE_FHD
+        const val DEFAULT_BITRATE_HD = StoragePlanner.DEFAULT_BITRATE_HD
 
         const val DEFAULT_PORT = 8080
 

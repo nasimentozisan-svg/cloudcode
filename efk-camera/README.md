@@ -29,6 +29,40 @@ KYV47 で撮影  →  操作端末から録画開始  →  20〜40分連続録�
 
 ---
 
+## 検証済みの範囲（2026-09-21 時点）
+
+開発環境から `dl.google.com` / `maven.google.com` へ到達できないため Android SDK と
+AndroidX を取得できません。そこで、取得可能な範囲で実際にコンパイル・実行して検証しました。
+
+| 範囲 | 状態 | 方法 |
+|---|---|---|
+| コアロジック9クラス | ✅ **コンパイル成功 + テスト55件すべて通過** | Kotlin 2.0.21 + JUnit 4.13.2 を JVM 上で実行 |
+| `ControlServer`（端末内HTTPサーバ） | ✅ 型検査通過 | **本物の** NanoHTTPD 2.3.1 に対して |
+| `YouTubeUploader`（再開可能アップロード） | ✅ 型検査通過 | **本物の** OkHttp 4.12.0 / Okio に対して |
+| `VideoStore` / `Prefs` / `AppState` / `AuthTokens` / `PreviewHub` / `OrphanScanner` / `GoogleAuthManager` / `QrCode` | ✅ 型検査通過 | 本物の org.json / kotlinx-coroutines / ZXing に対して |
+| `CameraController` / `EfkCameraService` / `UploadWorker` / `UploadScheduler` / `MainActivity` / `EfkApp` | ⚠️ **型検査 未実施** | CameraX・WorkManager・AppCompat を取得できないため。**構文エラー0件**と**自作クラス間の参照ミス0件**は確認済み |
+| Lint / リソース / マニフェスト | ⚠️ 未実施 | Android SDK が必要 |
+| 実機動作（40分録画・アップロード） | ⚠️ 未実施 | KYV47 が必要 |
+
+### この検証で実際に見つけて直した不具合
+
+| 箇所 | 内容 |
+|---|---|
+| `Redactor.redact()` | `var out = message` が `String?` と推論され**コンパイルが通らなかった**。ログのマスク処理そのものなので、見逃していたらビルドが止まっていた |
+| `FmtTest` のサンプル時刻 | テスト側の定数が JST 12:00 のつもりで 16:00 だった（製品コードは正しい） |
+| `StoragePlanner` のファイル上限 | 60分録画が3.5GBの上限を超える計算だったため、3.9e9バイト（約3.63GiB）へ修正 |
+
+### 手元で同じ検証をする
+
+Android Studio があるなら、CI と同じコマンドが最も確実です。
+
+```bash
+bash scripts/check-secrets.sh
+./gradlew lintDebug testDebugUnitTest assembleDebug
+```
+
+---
+
 ## 必要なもの
 
 | 用途 | 内容 |

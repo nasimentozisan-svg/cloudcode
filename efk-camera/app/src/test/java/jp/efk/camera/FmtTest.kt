@@ -11,7 +11,7 @@ class FmtTest {
     private val jst = TimeZone.getTimeZone("Asia/Tokyo")
 
     /** 2026-09-17 12:00:00 JST */
-    private val sample = 1789628400000L
+    private val sample = 1789614000000L
 
     @Test
     fun `タイトルは日付 + 試合名になる`() {
