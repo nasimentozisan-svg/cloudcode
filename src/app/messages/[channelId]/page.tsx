@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { waitUntil } from "@vercel/functions";
+import { after } from "next/server";
 import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import { canAccessChannel, ensureDefaultChannels } from "@/lib/channels";
@@ -15,12 +15,6 @@ import ScrollToBottomAnchor from "@/components/ScrollToBottomAnchor";
 import ChannelDeleteButton from "@/components/ChannelDeleteButton";
 import ChannelLeaveButton from "@/components/ChannelLeaveButton";
 import MessageDeleteButton from "@/components/MessageDeleteButton";
-
-// Posting a message that @mentions people notifies them over email/push/
-// LINE; LINE pushes are sent one at a time (see sendLineMessages) to stay
-// under LINE's rate limit, so a big mention (e.g. @全員) needs more than
-// the default function time limit to finish sending.
-export const maxDuration = 60;
 
 export default async function ChannelPage({
   params,
@@ -68,11 +62,13 @@ export default async function ChannelPage({
   // Marks the channel read so the nav's unread dot clears - runs on every
   // visit (including the 8s poll refresh below) rather than tracking scroll
   // position, since "opened the channel" is a good enough proxy for "seen".
-  // Backgrounded via waitUntil() instead of awaited: it doesn't gate anything
+  // Run after the response instead of awaited: it doesn't gate anything
   // shown on this render (this user's own read receipt isn't reflected back
   // to themselves), so blocking the response on it just adds a write to the
   // critical path of the app's busiest, most-polled page for no benefit.
-  waitUntil(
+  // after() (not @vercel/functions' waitUntil, which is a no-op outside
+  // Vercel and so never even starts Prisma's lazy query there).
+  after(() =>
     prisma.channelRead.upsert({
       where: { userId_channelId: { userId: user.id, channelId } },
       create: { userId: user.id, channelId },

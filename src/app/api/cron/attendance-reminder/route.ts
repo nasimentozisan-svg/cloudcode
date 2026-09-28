@@ -7,10 +7,6 @@ import { formatJST } from "@/lib/datetime";
 import type { Category } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
-// Notifies everyone with an unanswered event over email/push/LINE; LINE
-// pushes are sent one at a time (see sendLineMessages) to stay under
-// LINE's rate limit, so this can take a while with many recipients.
-export const maxDuration = 60;
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
 const REMINDER_WINDOW_MS = 48 * 60 * 60 * 1000;
@@ -58,7 +54,22 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  for (const [userId, unanswered] of unansweredByUser) {
+  // Several members at a time rather than strictly one after another: done
+  // serially, a slow provider (e.g. LINE rejecting every send) pushed this
+  // job past its time limit and everyone later in the list got nothing.
+  const queue = [...unansweredByUser];
+  async function worker() {
+    for (let entry = queue.shift(); entry; entry = queue.shift()) {
+      const [userId, unanswered] = entry;
+      try {
+        await remind(userId, unanswered);
+      } catch (error) {
+        console.error("[attendance-reminder] reminder failed", error);
+      }
+    }
+  }
+
+  async function remind(userId: string, unanswered: typeof events) {
     const user = users.find((u) => u.id === userId)!;
     const dateLabel = (startAt: Date) =>
       formatJST(startAt, { month: "numeric", day: "numeric", weekday: "short", hour: "2-digit", minute: "2-digit" });
@@ -79,6 +90,7 @@ export async function GET(req: NextRequest) {
       `【EFK members】出欠未回答の予定があります\n${unanswered.map((e) => `・${e.title} (${dateLabel(e.startAt)})`).join("\n")}`
     );
   }
+  await Promise.all(Array.from({ length: 5 }, worker));
 
   return NextResponse.json({ ok: true, reminded: unansweredByUser.size });
 }

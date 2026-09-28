@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/current-user";
 import { canManageSchedule } from "@/lib/schedule-permissions";
@@ -57,36 +58,44 @@ export async function createEventAction(
     },
   });
 
-  const recipients = await prisma.user.findMany({
-    where: {
-      id: { not: user.id },
-      OR: [
-        { categories: { some: { category: { in: categories as Category[] } } } },
-        { guardianChildCategories: { hasSome: categories as Category[] } },
-      ],
-    },
-    select: { id: true, email: true, receiveEmailNotifications: true },
+  // Sent after the response so the creator isn't kept waiting on
+  // LINE/email/push delivery to every recipient.
+  after(async () => {
+    try {
+      const recipients = await prisma.user.findMany({
+        where: {
+          id: { not: user.id },
+          OR: [
+            { categories: { some: { category: { in: categories as Category[] } } } },
+            { guardianChildCategories: { hasSome: categories as Category[] } },
+          ],
+        },
+        select: { id: true, email: true, receiveEmailNotifications: true },
+      });
+      const dateLabel = formatJST(startAtDate, {
+        month: "numeric",
+        day: "numeric",
+        weekday: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      await notifyRecipients(
+        recipients,
+        {
+          subject: `【EFK members】新しい予定が作成されました: ${title}`,
+          html: `<p>新しい予定が作成されました。</p>
+          <p><strong>${escapeHtml(title)}</strong><br>
+          ${dateLabel}${location ? ` ・ ${escapeHtml(location)}` : ""}<br>
+          対象: ${(categories as Category[]).map((c) => CATEGORY_LABELS[c]).join(" / ")}</p>
+          ${APP_URL ? `<p><a href="${APP_URL}/schedule">スケジュールを確認する</a></p>` : ""}`,
+        },
+        { title: "新しい予定", body: `${title} ・ ${dateLabel}`, url: "/schedule" },
+        `【EFK members】新しい予定\n${title}\n${dateLabel}${location ? ` ・ ${location}` : ""}`
+      );
+    } catch (error) {
+      console.error("[notify] new event notification failed", error);
+    }
   });
-  const dateLabel = formatJST(startAtDate, {
-    month: "numeric",
-    day: "numeric",
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  await notifyRecipients(
-    recipients,
-    {
-      subject: `【EFK members】新しい予定が作成されました: ${title}`,
-      html: `<p>新しい予定が作成されました。</p>
-      <p><strong>${escapeHtml(title)}</strong><br>
-      ${dateLabel}${location ? ` ・ ${escapeHtml(location)}` : ""}<br>
-      対象: ${(categories as Category[]).map((c) => CATEGORY_LABELS[c]).join(" / ")}</p>
-      ${APP_URL ? `<p><a href="${APP_URL}/schedule">スケジュールを確認する</a></p>` : ""}`,
-    },
-    { title: "新しい予定", body: `${title} ・ ${dateLabel}`, url: "/schedule" },
-    `【EFK members】新しい予定\n${title}\n${dateLabel}${location ? ` ・ ${location}` : ""}`
-  );
 
   revalidatePath("/schedule");
   revalidatePath("/dashboard");
@@ -200,42 +209,50 @@ export async function bulkCreateEventsAction(
     )
   );
 
-  const recipients = await prisma.user.findMany({
-    where: {
-      id: { not: user.id },
-      OR: [
-        { categories: { some: { category: { in: eventCategories } } } },
-        { guardianChildCategories: { hasSome: eventCategories } },
-      ],
-    },
-    select: { id: true, email: true, receiveEmailNotifications: true },
-  });
-  const listHtml = validEvents
-    .map((e) => {
-      const dateLabel = formatJST(e.startAt, {
-        month: "numeric",
-        day: "numeric",
-        weekday: "short",
-        hour: "2-digit",
-        minute: "2-digit",
+  // Sent after the response so the creator isn't kept waiting on
+  // LINE/email/push delivery to every recipient.
+  after(async () => {
+    try {
+      const recipients = await prisma.user.findMany({
+        where: {
+          id: { not: user.id },
+          OR: [
+            { categories: { some: { category: { in: eventCategories } } } },
+            { guardianChildCategories: { hasSome: eventCategories } },
+          ],
+        },
+        select: { id: true, email: true, receiveEmailNotifications: true },
       });
-      return `<li>${escapeHtml(e.title)} - ${dateLabel}${e.location ? ` ・ ${escapeHtml(e.location)}` : ""}</li>`;
-    })
-    .join("");
-  await notifyRecipients(
-    recipients,
-    {
-      subject: `【EFK members】新しい予定が${validEvents.length}件登録されました`,
-      html: `<p>新しい予定が${validEvents.length}件登録されました。</p>
-      <ul>${listHtml}</ul>
-      <p>対象: ${eventCategories.map((c) => CATEGORY_LABELS[c]).join(" / ")}</p>
-      ${APP_URL ? `<p><a href="${APP_URL}/schedule">スケジュールを確認する</a></p>` : ""}`,
-    },
-    { title: "新しい予定", body: `${validEvents.length}件の予定が登録されました`, url: "/schedule" },
-    `【EFK members】新しい予定が${validEvents.length}件登録されました\n${validEvents
-      .map((e) => e.title)
-      .join("\n")}`
-  );
+      const listHtml = validEvents
+        .map((e) => {
+          const dateLabel = formatJST(e.startAt, {
+            month: "numeric",
+            day: "numeric",
+            weekday: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+          return `<li>${escapeHtml(e.title)} - ${dateLabel}${e.location ? ` ・ ${escapeHtml(e.location)}` : ""}</li>`;
+        })
+        .join("");
+      await notifyRecipients(
+        recipients,
+        {
+          subject: `【EFK members】新しい予定が${validEvents.length}件登録されました`,
+          html: `<p>新しい予定が${validEvents.length}件登録されました。</p>
+          <ul>${listHtml}</ul>
+          <p>対象: ${eventCategories.map((c) => CATEGORY_LABELS[c]).join(" / ")}</p>
+          ${APP_URL ? `<p><a href="${APP_URL}/schedule">スケジュールを確認する</a></p>` : ""}`,
+        },
+        { title: "新しい予定", body: `${validEvents.length}件の予定が登録されました`, url: "/schedule" },
+        `【EFK members】新しい予定が${validEvents.length}件登録されました\n${validEvents
+          .map((e) => e.title)
+          .join("\n")}`
+      );
+    } catch (error) {
+      console.error("[notify] new event notification failed", error);
+    }
+  });
 
   revalidatePath("/schedule");
   revalidatePath("/dashboard");

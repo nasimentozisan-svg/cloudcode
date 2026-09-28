@@ -46,7 +46,7 @@ describe("sendLineMessage / sendLineMessages", () => {
     const results = await sendLineMessages(["u1", "blocked-user", "u2"], "hello");
 
     expect(results[0]).toEqual({ ok: true });
-    expect(results[1]).toEqual({ ok: false, reason: "http_error", status: 400 });
+    expect(results[1]).toEqual({ ok: false, reason: "http_error", status: 400, detail: "" });
     expect(results[2]).toEqual({ ok: true });
   });
 
@@ -71,7 +71,7 @@ describe("sendLineMessage / sendLineMessages", () => {
 
     const result = await sendLineMessage("u1", "hello");
 
-    expect(result).toEqual({ ok: false, reason: "http_error", status: 400 });
+    expect(result).toEqual({ ok: false, reason: "http_error", status: 400, detail: "" });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
@@ -103,14 +103,7 @@ describe("sendLineMessage / sendLineMessages", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  // Regression test for the real production bug this was built to fix:
-  // sendLineMessages used to fire every recipient's push at once
-  // (Promise.allSettled(...map...)), which routinely hit LINE's push-API
-  // rate limit and came back as 429s once a notification had more than a
-  // handful of LINE-linked recipients (confirmed in production logs:
-  // "LINE push failed http_error 429" x175 across 9 users). Sends must
-  // happen one at a time, never overlapping.
-  it("never has more than one push request in flight at once", async () => {
+  it("keeps at most 5 push requests in flight at once", async () => {
     let inFlight = 0;
     let maxInFlight = 0;
     const fetchMock = vi.fn().mockImplementation(async () => {
@@ -123,9 +116,65 @@ describe("sendLineMessage / sendLineMessages", () => {
     vi.stubGlobal("fetch", fetchMock);
     const { sendLineMessages } = await importLineModule();
 
-    await sendLineMessages(["u1", "u2", "u3", "u4"], "hello");
+    const results = await sendLineMessages(Array.from({ length: 12 }, (_, i) => `u${i}`), "hello");
 
-    expect(maxInFlight).toBe(1);
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(maxInFlight).toBe(5);
+    expect(fetchMock).toHaveBeenCalledTimes(12);
+    expect(results.every((r) => r.ok)).toBe(true);
+  });
+
+  // LINE answers 429 both for burst rate limiting and for an exhausted
+  // monthly message allowance; only the body tells them apart. Production
+  // kept logging 429s after sends were fully serialized, which only the
+  // monthly-limit case explains.
+  it("stops sending the rest of a batch once the monthly limit is reached, without retrying", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () =>
+      Response.json({ message: "You have reached your monthly limit." }, { status: 429 })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const { sendLineMessages } = await importLineModule();
+
+    const results = await sendLineMessages(Array.from({ length: 40 }, (_, i) => `u${i}`), "hello");
+
+    // Only the first wave of concurrent workers reaches LINE; nothing is retried.
+    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(5);
+    expect(results.filter((r) => !r.ok && r.reason === "quota_exceeded").length).toBe(
+      fetchMock.mock.calls.length
+    );
+    expect(results.filter((r) => !r.ok && r.reason === "skipped_quota").length).toBe(
+      40 - fetchMock.mock.calls.length
+    );
+  });
+
+  it("retries a burst rate-limit 429 once with the same retry key", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({ message: "The API rate limit has been exceeded. Try again later." }, { status: 429 })
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { sendLineMessage } = await importLineModule();
+
+    const result = await sendLineMessage("u1", "hello");
+
+    expect(result).toEqual({ ok: true });
+    const keys = fetchMock.mock.calls.map(
+      ([, init]) => (init as RequestInit & { headers: Record<string, string> }).headers["X-Line-Retry-Key"]
+    );
+    expect(keys[0]).toBeTruthy();
+    expect(keys[1]).toBe(keys[0]);
+  });
+
+  it("treats 409 on a retry as already delivered (no duplicate)", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("timeout"))
+      .mockResolvedValueOnce(new Response(null, { status: 409 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { sendLineMessage } = await importLineModule();
+
+    expect(await sendLineMessage("u1", "hello")).toEqual({ ok: true });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

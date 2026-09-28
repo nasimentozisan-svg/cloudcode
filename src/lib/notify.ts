@@ -40,9 +40,19 @@ export async function notifyRecipients(
   // in Vercel logs whether LINE delivery is actually working, and to notice
   // "target N, linked M" gaps (people who should be notified but never
   // finished linking their LINE account).
-  const succeeded =
-    lineResults.status === "fulfilled" ? lineResults.value.filter((r) => r.ok).length : 0;
+  const results = lineResults.status === "fulfilled" ? lineResults.value : [];
+  const succeeded = results.filter((r) => r.ok).length;
+  const failureCounts = new Map<string, number>();
+  for (const r of results) {
+    if (!r.ok) failureCounts.set(r.reason, (failureCounts.get(r.reason) ?? 0) + 1);
+  }
+  const failureSummary = [...failureCounts].map(([reason, n]) => `${reason}:${n}`).join(",");
   console.log(
-    `[notify] LINE: target=${recipients.length} linked=${lineLinked.length} succeeded=${succeeded} failed=${lineLinked.length - succeeded}`
+    `[notify] LINE: target=${recipients.length} linked=${lineLinked.length} succeeded=${succeeded} failed=${lineLinked.length - succeeded}${failureSummary ? ` (${failureSummary})` : ""}`
   );
+  if (failureCounts.has("quota_exceeded")) {
+    console.error(
+      "[notify] LINE monthly message limit reached - notifications will not be delivered until the LINE plan resets or is upgraded"
+    );
+  }
 }

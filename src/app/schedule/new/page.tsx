@@ -4,12 +4,6 @@ import { canManageSchedule } from "@/lib/schedule-permissions";
 import AppShell from "@/components/AppShell";
 import CreateEventForm from "@/components/CreateEventForm";
 
-// Creating an event notifies every eligible member over email/push/LINE;
-// LINE pushes are sent one at a time (see sendLineMessages) to stay under
-// LINE's rate limit, so a large recipient list needs more than the default
-// function time limit to finish sending.
-export const maxDuration = 60;
-
 export default async function NewEventPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");

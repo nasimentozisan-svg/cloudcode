@@ -2,6 +2,7 @@
 
 import { del } from "@/lib/blob";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/current-user";
@@ -135,36 +136,45 @@ export async function postMessageAction(
     },
   });
 
-  // Only @mentioned people are notified (or everyone, for @全員) — a plain
-  // message with no mention sends nothing, so casual chat doesn't spam
-  // everyone's email/push/LINE. See src/lib/mentions.ts.
-  const allUsers = await prisma.user.findMany({
-    where: { id: { not: user.id } },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      isAdmin: true,
-      receiveEmailNotifications: true,
-      categories: { select: { category: true } },
-    },
+  // Sent after the response: the poster shouldn't wait on LINE/email/push
+  // delivery (tens of seconds for a big @全員), and a slow or failing
+  // provider must not turn a saved message into a timed-out request.
+  after(async () => {
+    try {
+      // Only @mentioned people are notified (or everyone, for @全員) — a plain
+      // message with no mention sends nothing, so casual chat doesn't spam
+      // everyone's email/push/LINE. See src/lib/mentions.ts.
+      const allUsers = await prisma.user.findMany({
+        where: { id: { not: user.id } },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          isAdmin: true,
+          receiveEmailNotifications: true,
+          categories: { select: { category: true } },
+        },
+      });
+      const channelMembers = allUsers.filter((u) => canAccessChannel(u, channel));
+      const { userIds: mentionedIds, all: mentionsAll } = findMentions(trimmedBody, channelMembers);
+      const recipients = channelMembers.filter((u) => mentionsAll || mentionedIds.includes(u.id));
+      if (recipients.length > 0) {
+        await notifyRecipients(
+          recipients,
+          {
+            subject: `【EFK members】# ${channel.name} でメンションされました`,
+            html: `<p><strong>${escapeHtml(user.name)}</strong> さんが # ${escapeHtml(channel.name)} であなたにメンションしました。</p>
+            <p style="white-space:pre-wrap">${escapeHtml(trimmedBody)}</p>
+            ${APP_URL ? `<p><a href="${APP_URL}/messages/${channelId}">チャンネルを開く</a></p>` : ""}`,
+          },
+          { title: `# ${channel.name}`, body: `${user.name}: ${trimmedBody}`, url: `/messages/${channelId}` },
+          `【EFK members】# ${channel.name}\n${user.name}さんがメンションしました\n${trimmedBody}`
+        );
+      }
+    } catch (error) {
+      console.error("[notify] mention notification failed", error);
+    }
   });
-  const channelMembers = allUsers.filter((u) => canAccessChannel(u, channel));
-  const { userIds: mentionedIds, all: mentionsAll } = findMentions(trimmedBody, channelMembers);
-  const recipients = channelMembers.filter((u) => mentionsAll || mentionedIds.includes(u.id));
-  if (recipients.length > 0) {
-    await notifyRecipients(
-      recipients,
-      {
-        subject: `【EFK members】# ${channel.name} でメンションされました`,
-        html: `<p><strong>${escapeHtml(user.name)}</strong> さんが # ${escapeHtml(channel.name)} であなたにメンションしました。</p>
-        <p style="white-space:pre-wrap">${escapeHtml(trimmedBody)}</p>
-        ${APP_URL ? `<p><a href="${APP_URL}/messages/${channelId}">チャンネルを開く</a></p>` : ""}`,
-      },
-      { title: `# ${channel.name}`, body: `${user.name}: ${trimmedBody}`, url: `/messages/${channelId}` },
-      `【EFK members】# ${channel.name}\n${user.name}さんがメンションしました\n${trimmedBody}`
-    );
-  }
 
   const count = await prisma.message.count({ where: { channelId } });
   if (count > MAX_MESSAGES_PER_CHANNEL) {
