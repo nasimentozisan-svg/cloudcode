@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { startTiming } from "@/lib/timing";
 import { redirect } from "next/navigation";
-import { waitUntil } from "@vercel/functions";
+import { after } from "next/server";
 import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import { canManageSchedule, canRespondToEvent } from "@/lib/schedule-permissions";
@@ -22,7 +23,9 @@ export default async function SchedulePage({
 }: {
   searchParams: Promise<{ month?: string }>;
 }) {
+  const timing = startTiming("/schedule");
   const user = await getCurrentUser();
+  timing.authDone();
   if (!user) redirect("/login");
 
   const userCategories = user.categories.map((c) => c.category);
@@ -98,15 +101,17 @@ export default async function SchedulePage({
 
   // Marks every event shown on this page as read - uses the readEventIds
   // snapshot captured above, so this render still shows accurate NEW badges
-  // for anything that was unread up until now. Backgrounded (like the
-  // channel read marker) since nothing on this render depends on it.
-  waitUntil(
+  // for anything that was unread up until now. Run after the response via
+  // after() (not @vercel/functions' waitUntil, which is a no-op outside
+  // Vercel and so never even starts Prisma's lazy query there).
+  after(() =>
     prisma.eventRead.createMany({
       data: events.map((e) => ({ userId: user.id, eventId: e.id })),
       skipDuplicates: true,
     })
   );
 
+  timing.end();
   return (
     <AppShell user={user}>
       <div className="flex items-center justify-between">

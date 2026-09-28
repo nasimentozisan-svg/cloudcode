@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { startTiming } from "@/lib/timing";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/current-user";
@@ -25,7 +26,9 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export default async function DashboardPage() {
+  const timing = startTiming("/dashboard");
   const user = await getCurrentUser();
+  timing.authDone();
   if (!user) redirect("/login");
 
   const userCategories = user.categories.map((c) => c.category);
@@ -42,9 +45,10 @@ export default async function DashboardPage() {
       orderBy: { startAt: "asc" },
       take: 3,
     }),
+    // The attendance rate only looks at this user's own responses.
     prisma.event.findMany({
       where: { startAt: { lt: now } },
-      include: { categories: true, responses: true },
+      include: { categories: true, responses: { where: { userId: user.id } } },
     }),
     getReadEventIds(user.id),
   ]);
@@ -63,6 +67,7 @@ export default async function DashboardPage() {
         return [allChannels.filter((c) => canAccessChannel(user, c)), unread] as const;
       })();
 
+  timing.end();
   return (
     <AppShell user={user}>
       <div className="flex flex-col gap-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm sm:flex-row">

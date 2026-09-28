@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { startTiming } from "@/lib/timing";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/current-user";
 import { canAccessChannel, ensureDefaultChannels, getAllChannels } from "@/lib/channels";
@@ -7,7 +8,9 @@ import { isViewOnly } from "@/lib/categories";
 import AppShell from "@/components/AppShell";
 
 export default async function MessagesPage() {
+  const timing = startTiming("/messages");
   const user = await getCurrentUser();
+  timing.authDone();
   if (!user) redirect("/login");
   if (isViewOnly(user.categories.map((c) => c.category))) redirect("/schedule");
 
@@ -20,6 +23,7 @@ export default async function MessagesPage() {
 
   const accessible = channels.filter((c) => canAccessChannel(user, c));
 
+  timing.end();
   return (
     <AppShell user={user}>
       <div className="flex items-center justify-between">

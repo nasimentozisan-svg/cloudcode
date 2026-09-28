@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { startTiming } from "@/lib/timing";
 import { hasAdmin } from "@/lib/actions/setup";
 import { getCurrentUser } from "@/lib/current-user";
 import { defaultLandingPath } from "@/lib/categories";
@@ -12,12 +13,17 @@ export default async function Home() {
   // Checked first (not after hasAdmin()) since this is the PWA's start_url -
   // hit on every app launch - and an existing session already implies an
   // admin exists, saving a DB round trip on the app's single busiest route.
+  const timing = startTiming("/");
   const user = await getCurrentUser();
+  timing.authDone();
   if (user) {
+    timing.end();
     redirect(defaultLandingPath(user.categories.map((c) => c.category)));
   }
 
-  if (!(await hasAdmin())) {
+  const adminExists = await hasAdmin();
+  timing.end();
+  if (!adminExists) {
     redirect("/setup");
   }
   redirect("/login");
