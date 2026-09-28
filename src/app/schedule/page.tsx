@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { waitUntil } from "@vercel/functions";
 import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import { canManageSchedule, canRespondToEvent } from "@/lib/schedule-permissions";
@@ -97,11 +98,14 @@ export default async function SchedulePage({
 
   // Marks every event shown on this page as read - uses the readEventIds
   // snapshot captured above, so this render still shows accurate NEW badges
-  // for anything that was unread up until now.
-  await prisma.eventRead.createMany({
-    data: events.map((e) => ({ userId: user.id, eventId: e.id })),
-    skipDuplicates: true,
-  });
+  // for anything that was unread up until now. Backgrounded (like the
+  // channel read marker) since nothing on this render depends on it.
+  waitUntil(
+    prisma.eventRead.createMany({
+      data: events.map((e) => ({ userId: user.id, eventId: e.id })),
+      skipDuplicates: true,
+    })
+  );
 
   return (
     <AppShell user={user}>

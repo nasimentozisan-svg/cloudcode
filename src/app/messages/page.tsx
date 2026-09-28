@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/current-user";
-import { prisma } from "@/lib/prisma";
-import { canAccessChannel, ensureDefaultChannels } from "@/lib/channels";
+import { canAccessChannel, ensureDefaultChannels, getAllChannels } from "@/lib/channels";
 import { getUnreadChannelIds } from "@/lib/unread";
 import { isViewOnly } from "@/lib/categories";
 import AppShell from "@/components/AppShell";
@@ -15,15 +14,7 @@ export default async function MessagesPage() {
   await ensureDefaultChannels();
 
   const [channels, unreadChannelIds] = await Promise.all([
-    prisma.channel.findMany({
-      include: {
-        categories: true,
-        members: { select: { userId: true } },
-        leaves: { select: { userId: true } },
-        _count: { select: { messages: true } },
-      },
-      orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
-    }),
+    getAllChannels(),
     getUnreadChannelIds(user),
   ]);
 

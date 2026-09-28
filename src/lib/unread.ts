@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { prisma } from "@/lib/prisma";
-import { canAccessChannel } from "@/lib/channels";
+import { canAccessChannel, getAllChannels } from "@/lib/channels";
 import type { User, UserCategory } from "@/generated/prisma/client";
 
 // Returns the ids of every channel the user can see that has a message
@@ -14,26 +14,25 @@ import type { User, UserCategory } from "@/generated/prisma/client";
 export const getUnreadChannelIds = cache(async function getUnreadChannelIds(
   user: User & { categories: UserCategory[] }
 ): Promise<Set<string>> {
-  const [channels, reads] = await Promise.all([
-    prisma.channel.findMany({
-      include: {
-        categories: true,
-        members: { select: { userId: true } },
-        leaves: { select: { userId: true } },
-        messages: { orderBy: { createdAt: "desc" }, take: 1 },
-      },
-    }),
+  // Latest message time per channel via one aggregate query. A nested
+  // `messages: { take: 1 }` include looks equivalent but Prisma runs it as a
+  // single un-LIMITed query over every channel's messages and trims in
+  // memory - i.e. it downloaded the entire message history on every page.
+  const [channels, reads, latestByChannel] = await Promise.all([
+    getAllChannels(),
     prisma.channelRead.findMany({ where: { userId: user.id } }),
+    prisma.message.groupBy({ by: ["channelId"], _max: { createdAt: true } }),
   ]);
   const readMap = new Map(reads.map((r) => [r.channelId, r.lastReadAt]));
+  const latestMap = new Map(latestByChannel.map((m) => [m.channelId, m._max.createdAt]));
 
   const unread = new Set<string>();
   for (const c of channels) {
     if (!canAccessChannel(user, c)) continue;
-    const latest = c.messages[0];
+    const latest = latestMap.get(c.id);
     if (!latest) continue;
     const lastRead = readMap.get(c.id);
-    if (!lastRead || latest.createdAt > lastRead) unread.add(c.id);
+    if (!lastRead || latest > lastRead) unread.add(c.id);
   }
   return unread;
 });

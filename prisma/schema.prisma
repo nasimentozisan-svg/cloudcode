@@ -4,8 +4,12 @@
 // Get a free hosted Postgres database in seconds: `npx create-db`
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  // Loads `include`d relations in the same SQL query (LATERAL JOIN) instead
+  // of one extra sequential DB round trip per relation - each page's data
+  // loading was a chain of ~10 dependent round trips without this.
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {

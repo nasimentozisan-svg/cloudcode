@@ -5,7 +5,7 @@ import { getCurrentUser } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import AppShell from "@/components/AppShell";
 import { formatCategories, isViewOnly } from "@/lib/categories";
-import { canAccessChannel, ensureDefaultChannels } from "@/lib/channels";
+import { canAccessChannel, ensureDefaultChannels, getAllChannels } from "@/lib/channels";
 import { getUnreadChannelIds, getReadEventIds } from "@/lib/unread";
 import { formatJST } from "@/lib/datetime";
 import { EXTERNAL_APPS } from "@/lib/external-apps";
@@ -57,15 +57,7 @@ export default async function DashboardPage() {
     : await (async () => {
         await ensureDefaultChannels();
         const [allChannels, unread] = await Promise.all([
-          prisma.channel.findMany({
-            include: {
-              categories: true,
-              members: { select: { userId: true } },
-              leaves: { select: { userId: true } },
-              _count: { select: { messages: true } },
-            },
-            orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
-          }),
+          getAllChannels(),
           getUnreadChannelIds(user),
         ]);
         return [allChannels.filter((c) => canAccessChannel(user, c)), unread] as const;

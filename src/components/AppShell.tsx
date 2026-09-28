@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { logoutAction } from "@/lib/actions/auth";
@@ -23,25 +24,17 @@ async function hasScheduleUpdate(user: User & { categories: UserCategory[] }): P
   });
 }
 
-export default async function AppShell({
-  user,
-  children,
-}: {
-  user: User & { categories: UserCategory[] };
-  children: React.ReactNode;
-}) {
+type ShellUser = User & { categories: UserCategory[] };
+
+function buildNavItems(
+  user: ShellUser,
+  badges: { schedule: boolean; messages: boolean }
+): NavItem[] {
   const viewOnly = isViewOnly(user.categories.map((c) => c.category));
-
-  const [scheduleBadge, unreadChannelIds] = await Promise.all([
-    hasScheduleUpdate(user),
-    viewOnly ? Promise.resolve(new Set<string>()) : getUnreadChannelIds(user),
-  ]);
-  const messagesBadge = unreadChannelIds.size > 0;
-
-  const navItems: NavItem[] = [
+  return [
     { href: "/dashboard", label: "ホーム" },
-    { href: "/schedule", label: "スケジュール", hasBadge: scheduleBadge },
-    ...(viewOnly ? [] : [{ href: "/messages", label: "メッセージ", hasBadge: messagesBadge }]),
+    { href: "/schedule", label: "スケジュール", hasBadge: badges.schedule },
+    ...(viewOnly ? [] : [{ href: "/messages", label: "メッセージ", hasBadge: badges.messages }]),
     ...(user.isAdmin
       ? [
           { href: "/admin", label: "管理者" },
@@ -49,7 +42,36 @@ export default async function AppShell({
         ]
       : []),
   ];
+}
 
+async function NavWithBadges({ user }: { user: ShellUser }) {
+  const viewOnly = isViewOnly(user.categories.map((c) => c.category));
+  let badges = { schedule: false, messages: false };
+  try {
+    const [scheduleBadge, unreadChannelIds] = await Promise.all([
+      hasScheduleUpdate(user),
+      viewOnly ? Promise.resolve(new Set<string>()) : getUnreadChannelIds(user),
+    ]);
+    badges = { schedule: scheduleBadge, messages: unreadChannelIds.size > 0 };
+  } catch (error) {
+    // The dots are a hint, not page content - a failed badge query shouldn't
+    // replace an otherwise-loaded page with an error screen.
+    console.error("[AppShell] nav badge query failed", error);
+  }
+  return <NavLinks items={buildNavItems(user, badges)} />;
+}
+
+// Not async: the badge dots are streamed in via <Suspense> so the page's own
+// content is sent and usable without waiting on the badge queries (which
+// only start once the page has finished loading its data). Until they
+// arrive the same links render without dots.
+export default function AppShell({
+  user,
+  children,
+}: {
+  user: ShellUser;
+  children: React.ReactNode;
+}) {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="border-b border-gray-200 bg-white">
@@ -65,7 +87,11 @@ export default async function AppShell({
               />
               <span className="font-bold text-gray-900">EFK members</span>
             </Link>
-            <NavLinks items={navItems} />
+            <Suspense
+              fallback={<NavLinks items={buildNavItems(user, { schedule: false, messages: false })} />}
+            >
+              <NavWithBadges user={user} />
+            </Suspense>
           </div>
           <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-sm text-gray-600">
             <span className="whitespace-nowrap">
