@@ -102,4 +102,30 @@ describe("sendLineMessage / sendLineMessages", () => {
     expect(many).toEqual([]);
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  // Regression test for the real production bug this was built to fix:
+  // sendLineMessages used to fire every recipient's push at once
+  // (Promise.allSettled(...map...)), which routinely hit LINE's push-API
+  // rate limit and came back as 429s once a notification had more than a
+  // handful of LINE-linked recipients (confirmed in production logs:
+  // "LINE push failed http_error 429" x175 across 9 users). Sends must
+  // happen one at a time, never overlapping.
+  it("never has more than one push request in flight at once", async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const fetchMock = vi.fn().mockImplementation(async () => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      inFlight--;
+      return new Response(null, { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { sendLineMessages } = await importLineModule();
+
+    await sendLineMessages(["u1", "u2", "u3", "u4"], "hello");
+
+    expect(maxInFlight).toBe(1);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
 });

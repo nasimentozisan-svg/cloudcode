@@ -7,6 +7,10 @@ import { formatJST } from "@/lib/datetime";
 import type { Category } from "@/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
+// Notifies everyone with an unanswered event over email/push/LINE; LINE
+// pushes are sent one at a time (see sendLineMessages) to stay under
+// LINE's rate limit, so this can take a while with many recipients.
+export const maxDuration = 60;
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL;
 const REMINDER_WINDOW_MS = 48 * 60 * 60 * 1000;

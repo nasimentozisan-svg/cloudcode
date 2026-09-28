@@ -60,8 +60,20 @@ export async function sendLineMessages(
   text: string
 ): Promise<LineSendResult[]> {
   if (!channelAccessToken || lineUserIds.length === 0) return [];
-  const settled = await Promise.allSettled(
-    lineUserIds.map((id) => sendLineMessage(id, text))
-  );
-  return settled.map((s) => (s.status === "fulfilled" ? s.value : { ok: false, reason: "network_error" }));
+
+  // Sent one at a time with a short gap, not all at once: firing every
+  // recipient's push in parallel (the old Promise.allSettled(...map...))
+  // blew straight through LINE's push-API rate limit whenever a
+  // notification had more than a handful of LINE-linked recipients - every
+  // request landed in the same instant, got 429'd together, and even the
+  // single retry above collided again since it fired right back in an
+  // equally synchronized burst. Real production logs showed this: 175
+  // "LINE push failed http_error 429" over 9 users across
+  // schedule/message/reminder notifications.
+  const results: LineSendResult[] = [];
+  for (let i = 0; i < lineUserIds.length; i++) {
+    if (i > 0) await new Promise((resolve) => setTimeout(resolve, 200));
+    results.push(await sendLineMessage(lineUserIds[i], text));
+  }
+  return results;
 }

@@ -4,6 +4,10 @@ import { canManageSchedule } from "@/lib/schedule-permissions";
 import AppShell from "@/components/AppShell";
 import ScheduleImportForm from "@/components/ScheduleImportForm";
 
+// See schedule/new/page.tsx - LINE pushes for the notification are sent
+// one at a time to stay under LINE's rate limit.
+export const maxDuration = 60;
+
 export default async function ScheduleImportPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");

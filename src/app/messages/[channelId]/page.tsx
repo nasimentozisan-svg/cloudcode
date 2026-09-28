@@ -16,6 +16,12 @@ import ChannelDeleteButton from "@/components/ChannelDeleteButton";
 import ChannelLeaveButton from "@/components/ChannelLeaveButton";
 import MessageDeleteButton from "@/components/MessageDeleteButton";
 
+// Posting a message that @mentions people notifies them over email/push/
+// LINE; LINE pushes are sent one at a time (see sendLineMessages) to stay
+// under LINE's rate limit, so a big mention (e.g. @全員) needs more than
+// the default function time limit to finish sending.
+export const maxDuration = 60;
+
 export default async function ChannelPage({
   params,
 }: {
