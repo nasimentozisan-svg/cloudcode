@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { subscribePushAction, unsubscribePushAction } from "@/lib/actions/push";
+import { sendTestPushAction, subscribePushAction, unsubscribePushAction } from "@/lib/actions/push";
 
 type Status = "checking" | "unsupported" | "ios-needs-home-screen" | "register-error" | "off" | "on";
 
@@ -30,6 +30,7 @@ export default function PushNotificationToggle({ vapidPublicKey }: { vapidPublic
   const [status, setStatus] = useState<Status>("checking");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [testMessage, setTestMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (vapidPublicKey && isIosBrowserTab()) {
@@ -100,6 +101,36 @@ export default function PushNotificationToggle({ vapidPublicKey }: { vapidPublic
     });
   }
 
+  function sendTest(delaySeconds: 0 | 15) {
+    setError(null);
+    setTestMessage(null);
+    startTransition(async () => {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+          setStatus("off");
+          setTestMessage("この端末は通知が未登録です。もう一度オンにしてください");
+          return;
+        }
+        const result = await sendTestPushAction(sub.endpoint, delaySeconds);
+        setTestMessage(
+          result === "sent"
+            ? "テスト通知を送信しました（この端末のみ）"
+            : result === "scheduled"
+              ? "15秒後にこの端末だけへ送ります。今のうちにアプリを閉じる／画面を消してください"
+              : result === "not_registered"
+                ? "この端末は通知が未登録です。もう一度オンにしてください"
+                : result === "expired"
+                  ? "この端末の通知登録が無効になっていました。もう一度オンにしてください"
+                  : "送信に失敗しました"
+        );
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "テスト通知の送信に失敗しました");
+      }
+    });
+  }
+
   if (status === "unsupported") {
     return <p className="text-xs text-gray-400">この端末・ブラウザはプッシュ通知に対応していません</p>;
   }
@@ -130,6 +161,27 @@ export default function PushNotificationToggle({ vapidPublicKey }: { vapidPublic
         />
         この端末でプッシュ通知を受け取る
       </label>
+      {status === "on" && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={() => sendTest(0)}
+            className="rounded-md border border-gray-300 px-3 py-1 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+          >
+            この端末にテスト通知を送る
+          </button>
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={() => sendTest(15)}
+            className="rounded-md border border-gray-300 px-3 py-1 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+          >
+            15秒後に送る（閉じた状態の確認用）
+          </button>
+        </div>
+      )}
+      {testMessage && <p className="mt-1 text-xs text-gray-600">{testMessage}</p>}
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </div>
   );

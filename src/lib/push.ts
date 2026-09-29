@@ -54,3 +54,33 @@ export async function sendPushToUsers(userIds: string[], payload: PushPayload): 
   );
   return summary;
 }
+
+export type SinglePushResult = "sent" | "not_registered" | "expired" | "failed" | "not_configured";
+
+// Sends to exactly one registration, and only if it belongs to userId -
+// used by the "test notification to this device" button so a test can
+// never reach another member or another of this member's devices.
+export async function sendPushToOwnDevice(
+  userId: string,
+  endpoint: string,
+  payload: PushPayload
+): Promise<SinglePushResult> {
+  if (!configured) return "not_configured";
+  const sub = await prisma.pushSubscription.findFirst({ where: { endpoint, userId } });
+  if (!sub) return "not_registered";
+  try {
+    await webpush.sendNotification(
+      { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+      JSON.stringify(payload)
+    );
+    return "sent";
+  } catch (e) {
+    const statusCode = (e as { statusCode?: number }).statusCode;
+    if (statusCode === 404 || statusCode === 410) {
+      await prisma.pushSubscription.delete({ where: { id: sub.id } }).catch(() => {});
+      return "expired";
+    }
+    console.error("push send failed", statusCode, (e as { body?: string }).body ?? "");
+    return "failed";
+  }
+}
