@@ -26,13 +26,21 @@ self.addEventListener("notificationclick", (event) => {
       for (const client of clientList) {
         if (client.url.endsWith(url) && "focus" in client) return client.focus();
       }
-      // App already open on another page: bring it forward on the target
-      // page instead of stacking a second window.
+      // App already open on another page: bring it forward, then move it to
+      // the target page. focus() must come first - it's only allowed while
+      // the tap's user activation lasts, which a slow navigate() outlives
+      // (Android then switched the page in the background without showing it).
       for (const client of clientList) {
-        if ("navigate" in client && "focus" in client) {
+        if ("focus" in client) {
           try {
-            const navigated = await client.navigate(url);
-            if (navigated) return navigated.focus();
+            const focused = await client.focus();
+            if (focused && "navigate" in focused) {
+              try {
+                await focused.navigate(url);
+                return;
+              } catch {}
+            }
+            break;
           } catch {}
         }
       }
