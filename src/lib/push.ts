@@ -7,7 +7,10 @@ const configured = Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
 
 if (configured) {
   webpush.setVapidDetails(
-    process.env.VAPID_SUBJECT || "mailto:admin@example.com",
+    // Apple's push service rejects a placeholder contact such as
+    // mailto:admin@example.com (403 BadJwtToken) while Android's accepts
+    // anything, so without VAPID_SUBJECT fall back to the app's real URL.
+    process.env.VAPID_SUBJECT || process.env.NEXT_PUBLIC_APP_URL || "mailto:admin@example.com",
     VAPID_PUBLIC_KEY!,
     VAPID_PRIVATE_KEY!
   );

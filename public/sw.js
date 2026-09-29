@@ -22,9 +22,19 @@ self.addEventListener("notificationclick", (event) => {
   const url = event.notification.data && event.notification.data.url ? event.notification.data.url : "/";
 
   event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (clientList) => {
       for (const client of clientList) {
         if (client.url.endsWith(url) && "focus" in client) return client.focus();
+      }
+      // App already open on another page: bring it forward on the target
+      // page instead of stacking a second window.
+      for (const client of clientList) {
+        if ("navigate" in client && "focus" in client) {
+          try {
+            const navigated = await client.navigate(url);
+            if (navigated) return navigated.focus();
+          } catch {}
+        }
       }
       if (self.clients.openWindow) return self.clients.openWindow(url);
     })

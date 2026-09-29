@@ -1,12 +1,12 @@
 import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { logoutAction } from "@/lib/actions/auth";
 import { formatCategories, isViewOnly } from "@/lib/categories";
 import { prisma } from "@/lib/prisma";
 import { canRespondToEvent } from "@/lib/schedule-permissions";
 import { getUnreadChannelIds } from "@/lib/unread";
 import NavLinks, { type NavItem } from "@/components/NavLinks";
+import LogoutButton from "@/components/LogoutButton";
 import type { User, UserCategory } from "@/generated/prisma/client";
 
 // The nav dot means "you still owe a response": lit while any upcoming
@@ -98,11 +98,7 @@ export default function AppShell({
               {user.name}（{formatCategories(user.categories.map((c) => c.category))}
               {user.isAdmin ? " / 管理者" : ""}）
             </span>
-            <form action={logoutAction}>
-              <button className="whitespace-nowrap rounded-md border border-gray-300 px-3 py-1 text-gray-700 hover:bg-gray-100">
-                ログアウト
-              </button>
-            </form>
+            <LogoutButton />
           </div>
         </div>
       </header>
