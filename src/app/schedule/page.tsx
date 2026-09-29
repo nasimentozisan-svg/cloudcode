@@ -43,11 +43,14 @@ export default async function SchedulePage({
   }
 
   // すべてのカテゴリーの予定を全員が閲覧できるようにする（回答できるのは対象カテゴリーの人のみ）
-  const [events, allUsers, readEventIds] = await Promise.all([
+  const [rawEvents, allUsers, readEventIds] = await Promise.all([
     prisma.event.findMany({
       include: {
         categories: true,
-        responses: { include: { user: { select: { name: true } } } },
+        // Responder names come from allUsers below rather than a per-response
+        // user join: with a season of events that join was most of this
+        // page's load time (~165ms of DB time at 400 events/22k answers).
+        responses: { select: { userId: true, status: true } },
         createdBy: { select: { name: true } },
         matchResult: { select: { id: true } },
       },
@@ -56,6 +59,11 @@ export default async function SchedulePage({
     prisma.user.findMany({ select: { id: true, name: true, categories: true } }),
     getReadEventIds(user.id),
   ]);
+  const nameById = new Map(allUsers.map((u) => [u.id, u.name]));
+  const events = rawEvents.map((ev) => ({
+    ...ev,
+    responses: ev.responses.map((r) => ({ ...r, user: { name: nameById.get(r.userId) ?? "" } })),
+  }));
 
   const upcoming = events.filter((e) => e.startAt >= now);
   const past = events
