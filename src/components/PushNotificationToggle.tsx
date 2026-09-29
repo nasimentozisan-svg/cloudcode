@@ -3,7 +3,19 @@
 import { useEffect, useState, useTransition } from "react";
 import { subscribePushAction, unsubscribePushAction } from "@/lib/actions/push";
 
-type Status = "checking" | "unsupported" | "register-error" | "off" | "on";
+type Status = "checking" | "unsupported" | "ios-needs-home-screen" | "register-error" | "off" | "on";
+
+// iPhone/iPad Safari only offers web push to sites added to the Home Screen
+// (iOS 16.4+) and opened from there; in a normal Safari tab PushManager
+// simply doesn't exist, which used to read as "not supported" with no hint.
+function isIosBrowserTab(): boolean {
+  const ua = navigator.userAgent;
+  const ios = /iPhone|iPad|iPod/.test(ua) || (ua.includes("Macintosh") && navigator.maxTouchPoints > 1);
+  const standalone =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  return ios && !standalone;
+}
 
 function urlBase64ToUint8Array(base64String: string): BufferSource {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -20,6 +32,10 @@ export default function PushNotificationToggle({ vapidPublicKey }: { vapidPublic
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
+    if (vapidPublicKey && isIosBrowserTab()) {
+      setStatus("ios-needs-home-screen");
+      return;
+    }
     if (!vapidPublicKey || !("serviceWorker" in navigator) || !("PushManager" in window)) {
       setStatus("unsupported");
       return;
@@ -86,6 +102,13 @@ export default function PushNotificationToggle({ vapidPublicKey }: { vapidPublic
 
   if (status === "unsupported") {
     return <p className="text-xs text-gray-400">この端末・ブラウザはプッシュ通知に対応していません</p>;
+  }
+  if (status === "ios-needs-home-screen") {
+    return (
+      <p className="text-xs text-gray-600">
+        iPhoneでプッシュ通知を受け取るには、Safariの共有ボタン（□↑）→「ホーム画面に追加」でアプリを追加し、ホーム画面のアイコンから開いてこの設定をオンにしてください（iOS 16.4以降）。
+      </p>
+    );
   }
   if (status === "register-error") {
     return (
