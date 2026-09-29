@@ -26,7 +26,7 @@ export async function notifyRecipients(
     select: { lineUserId: true },
   });
 
-  const [, , lineResults] = await Promise.allSettled([
+  const [emailResult, pushResult, lineResults] = await Promise.allSettled([
     sendNotificationEmails(emailRecipients, email.subject, email.html),
     sendPushToUsers(userIds, push),
     sendLineMessages(
@@ -40,6 +40,23 @@ export async function notifyRecipients(
   // in Vercel logs whether LINE delivery is actually working, and to notice
   // "target N, linked M" gaps (people who should be notified but never
   // finished linking their LINE account).
+  if (emailResult.status === "fulfilled" && emailResult.value.target > 0) {
+    const e = emailResult.value;
+    const reasons = Object.entries(e.failures).map(([reason, n]) => `${reason}:${n}`).join(",");
+    console.log(
+      `[notify] email: provider=${e.provider} target=${e.target} sent=${e.sent} failed=${e.target - e.sent}${reasons ? ` (${reasons})` : ""}`
+    );
+  } else if (emailResult.status === "rejected") {
+    console.error("[notify] email: send threw", emailResult.reason);
+  }
+
+  if (pushResult.status === "fulfilled" && pushResult.value.subscriptions > 0) {
+    const p = pushResult.value;
+    console.log(
+      `[notify] push: target=${recipients.length} devices=${p.subscriptions} sent=${p.sent} expired=${p.expired} failed=${p.failed}`
+    );
+  }
+
   const results = lineResults.status === "fulfilled" ? lineResults.value : [];
   const succeeded = results.filter((r) => r.ok).length;
   const failureCounts = new Map<string, number>();

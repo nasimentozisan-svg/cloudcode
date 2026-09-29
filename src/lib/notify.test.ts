@@ -35,8 +35,8 @@ const recipients = [
 describe("notifyRecipients", () => {
   beforeEach(() => {
     findManyMock.mockReset();
-    sendNotificationEmailsMock.mockReset().mockResolvedValue(undefined);
-    sendPushToUsersMock.mockReset().mockResolvedValue(undefined);
+    sendNotificationEmailsMock.mockReset().mockResolvedValue({ provider: "resend", target: 0, sent: 0, failures: {} });
+    sendPushToUsersMock.mockReset().mockResolvedValue({ subscriptions: 0, sent: 0, expired: 0, failed: 0 });
     sendLineMessagesMock.mockReset().mockResolvedValue([]);
   });
 

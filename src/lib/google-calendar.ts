@@ -33,7 +33,12 @@ export function buildGoogleAuthUrl(): string {
     // app was already authorized before - without this, re-authorizing
     // after losing the token would silently return no refresh_token.
     prompt: "consent",
-    scope: ["https://www.googleapis.com/auth/calendar"],
+    // gmail.send lets notification emails go out from the club's own Gmail
+    // (see src/lib/email.ts). Send-only: it can't read the mailbox.
+    scope: [
+      "https://www.googleapis.com/auth/calendar",
+      "https://www.googleapis.com/auth/gmail.send",
+    ],
   });
 }
 
@@ -64,4 +69,14 @@ export function getCalendarClient() {
   const client = getOAuth2Client();
   client.setCredentials({ refresh_token: refreshToken });
   return google.calendar({ version: "v3", auth: client });
+}
+
+export function getGmailClient() {
+  const refreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
+  if (!refreshToken) {
+    throw new Error("GOOGLE_OAUTH_REFRESH_TOKEN が設定されていません");
+  }
+  const client = getOAuth2Client();
+  client.setCredentials({ refresh_token: refreshToken });
+  return google.gmail({ version: "v1", auth: client });
 }
