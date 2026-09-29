@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCalendarClient, isGoogleSyncConfigured } from "@/lib/google-calendar";
 import { JST_TIMEZONE } from "@/lib/datetime";
+import { errorCode, isGoogleAuthFailure, reportHealth, reportHealthOk } from "@/lib/health";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +44,29 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, skipped: "not configured" });
   }
 
+  try {
+    return await syncCalendar();
+  } catch (error) {
+    // Unexpected (DB down, client misconfigured, ...): still a 500 as
+    // before, but tagged so the health check sees the sync didn't run.
+    reportHealth("calendar_sync_failed", { stage: "run", error: errorCode(error) });
+    throw error;
+  }
+}
+
+async function syncCalendar() {
   const calendar = getCalendarClient();
+  // Per-item failures are counted (and logged individually as before);
+  // one summary [health] line at the end tells the health check whether
+  // the run as a whole went wrong, and whether it's the OAuth grant itself.
+  let failed = 0;
+  let firstError: unknown = null;
+  let authFailure = false;
+  const noteFailure = (error: unknown) => {
+    failed++;
+    firstError ??= error;
+    if (isGoogleAuthFailure(error)) authFailure = true;
+  };
 
   const pendingDeletions = await prisma.pendingGoogleDeletion.findMany();
   let deleted = 0;
@@ -59,6 +82,7 @@ export async function GET(req: NextRequest) {
       const status = (error as { code?: number })?.code;
       if (status !== 404 && status !== 410) {
         console.error("Google Calendar delete failed", pending.googleCalendarEventId, error);
+        noteFailure(error);
         continue;
       }
     }
@@ -86,6 +110,7 @@ export async function GET(req: NextRequest) {
         const status = (error as { code?: number })?.code;
         if (status !== 404 && status !== 410) {
           console.error("Google Calendar update failed", event.id, error);
+          noteFailure(error);
           continue;
         }
         // Fell off the Google side somehow - fall through and recreate it.
@@ -103,7 +128,26 @@ export async function GET(req: NextRequest) {
       }
     } catch (error) {
       console.error("Google Calendar create failed", event.id, error);
+      noteFailure(error);
     }
+  }
+
+  if (failed > 0) {
+    reportHealth("calendar_sync_failed", {
+      stage: "items",
+      failed,
+      created,
+      updated,
+      deleted,
+      error: errorCode(firstError),
+    });
+    if (authFailure) {
+      // Same refresh token also sends Gmail notifications - if Google has
+      // revoked it, email is about to break too.
+      reportHealth("google_auth_error", { source: "calendar_sync", error: errorCode(firstError) });
+    }
+  } else {
+    reportHealthOk("calendar_sync", { created, updated, deleted });
   }
 
   return NextResponse.json({ ok: true, created, updated, deleted });

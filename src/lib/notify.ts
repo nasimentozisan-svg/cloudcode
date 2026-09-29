@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { sendNotificationEmails } from "@/lib/email";
 import { sendPushToUsers, type PushPayload } from "@/lib/push";
 import { sendLineMessages } from "@/lib/line";
+import { reportHealth } from "@/lib/health";
 
 export type NotifyRecipient = { id: string; email: string; receiveEmailNotifications: boolean };
 
@@ -46,8 +47,12 @@ export async function notifyRecipients(
     console.log(
       `[notify] email: provider=${e.provider} target=${e.target} sent=${e.sent} failed=${e.target - e.sent}${reasons ? ` (${reasons})` : ""}`
     );
+    if (e.sent < e.target) {
+      reportHealth("email_failed", { provider: e.provider, target: e.target, sent: e.sent, reasons });
+    }
   } else if (emailResult.status === "rejected") {
     console.error("[notify] email: send threw", emailResult.reason);
+    reportHealth("email_failed", { reasons: "threw" });
   }
 
   if (pushResult.status === "fulfilled" && pushResult.value.subscriptions > 0) {

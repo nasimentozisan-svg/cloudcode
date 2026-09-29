@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { createSession, destroySession } from "@/lib/session";
 import { registerSchema, loginSchema } from "@/lib/validation";
 import { defaultLandingPath } from "@/lib/categories";
+import { errorCode, reportHealth } from "@/lib/health";
 import type { Category } from "@/generated/prisma/client";
 
 export type ActionState = { error?: string };
@@ -83,20 +84,29 @@ export async function loginAction(
   }
 
   const { email, password } = parsed.data;
-  const user = await prisma.user.findUnique({
-    where: { email },
-    include: { categories: true },
-  });
-  if (!user) {
-    return { error: "メールアドレスまたはパスワードが違います" };
-  }
+  let user;
+  try {
+    user = await prisma.user.findUnique({
+      where: { email },
+      include: { categories: true },
+    });
+    if (!user) {
+      return { error: "メールアドレスまたはパスワードが違います" };
+    }
 
-  const valid = await bcrypt.compare(password, user.passwordHash);
-  if (!valid) {
-    return { error: "メールアドレスまたはパスワードが違います" };
-  }
+    const valid = await bcrypt.compare(password, user.passwordHash);
+    if (!valid) {
+      return { error: "メールアドレスまたはパスワードが違います" };
+    }
 
-  await createSession(user.id);
+    await createSession(user.id);
+  } catch (error) {
+    // A wrong password is not an error; this is login itself breaking
+    // (DB unreachable, session signing failing, ...). Same failure as
+    // before for the member, just tagged for the health check.
+    reportHealth("auth_error", { stage: "login", error: errorCode(error) });
+    throw error;
+  }
   redirect(defaultLandingPath(user.categories.map((c) => c.category)));
 }
 

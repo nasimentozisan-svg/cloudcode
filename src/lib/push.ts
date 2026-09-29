@@ -1,5 +1,6 @@
 import webpush from "web-push";
 import { prisma } from "@/lib/prisma";
+import { reportHealth } from "@/lib/health";
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
@@ -52,6 +53,11 @@ export async function sendPushToUsers(userIds: string[], payload: PushPayload): 
       }
     })
   );
+  if (summary.failed > 0) {
+    // Expired registrations are routine cleanup; only real delivery
+    // failures count as a health problem.
+    reportHealth("push_failed", { devices: summary.subscriptions, sent: summary.sent, failed: summary.failed });
+  }
   return summary;
 }
 
@@ -81,6 +87,7 @@ export async function sendPushToOwnDevice(
       return "expired";
     }
     console.error("push send failed", statusCode, (e as { body?: string }).body ?? "");
+    reportHealth("push_failed", { source: "test", status: statusCode ?? "none" });
     return "failed";
   }
 }

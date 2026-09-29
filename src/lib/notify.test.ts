@@ -110,3 +110,37 @@ describe("notifyRecipients", () => {
     expect(sendLineMessagesMock).not.toHaveBeenCalled();
   });
 });
+
+describe("notifyRecipients email health marker", () => {
+  beforeEach(() => {
+    findManyMock.mockReset().mockResolvedValue([]);
+    sendPushToUsersMock.mockReset().mockResolvedValue({ subscriptions: 0, sent: 0, expired: 0, failed: 0 });
+    sendLineMessagesMock.mockReset().mockResolvedValue([]);
+  });
+
+  it("flags undelivered email with provider, counts and reasons - no addresses", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    sendNotificationEmailsMock
+      .mockReset()
+      .mockResolvedValue({ provider: "gmail", target: 2, sent: 1, failures: { daily_limit: 1 } });
+
+    await notifyRecipients(recipients, email, push, lineText);
+
+    const lines = err.mock.calls.map((c) => String(c[0])).filter((l) => l.startsWith("[health]"));
+    expect(lines).toEqual(["[health] email_failed provider=gmail target=2 sent=1 reasons=daily_limit:1"]);
+    expect(lines.join()).not.toContain("@");
+    err.mockRestore();
+  });
+
+  it("stays quiet when every email went out", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    sendNotificationEmailsMock.mockReset().mockResolvedValue({ provider: "gmail", target: 2, sent: 2, failures: {} });
+
+    await notifyRecipients(recipients, email, push, lineText);
+
+    expect(err.mock.calls.map((c) => String(c[0])).filter((l) => l.startsWith("[health]"))).toEqual([]);
+    err.mockRestore();
+  });
+});

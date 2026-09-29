@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { after } from "next/server";
 import { getCurrentUser } from "@/lib/current-user";
+import { startTiming } from "@/lib/timing";
 import { prisma } from "@/lib/prisma";
 import { canAccessChannel, ensureDefaultChannels } from "@/lib/channels";
 import { formatJST } from "@/lib/datetime";
@@ -22,7 +23,9 @@ export default async function ChannelPage({
   params: Promise<{ channelId: string }>;
 }) {
   const { channelId } = await params;
+  const timing = startTiming("/messages/[channelId]", { quiet: true });
   const user = await getCurrentUser();
+  timing.authDone();
   if (!user) redirect("/login");
   if (isViewOnly(user.categories.map((c) => c.category))) redirect("/schedule");
 
@@ -94,6 +97,7 @@ export default async function ChannelPage({
     ).length;
   }
 
+  timing.end();
   return (
     <AppShell user={user}>
       <PollRefresh intervalMs={8000} />

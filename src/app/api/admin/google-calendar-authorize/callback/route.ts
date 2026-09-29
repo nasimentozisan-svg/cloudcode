@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/current-user";
 import { exchangeCodeForRefreshToken } from "@/lib/google-calendar";
 import { escapeHtml } from "@/lib/email";
+import { errorCode, reportHealth } from "@/lib/health";
 
 function htmlPage(bodyHtml: string): NextResponse {
   return new NextResponse(
@@ -45,6 +46,7 @@ export async function GET(req: NextRequest) {
       <p style="color:#666;font-size:13px;">このコードは今だけ表示されます。閉じたら二度と表示されないので、必ず今コピーしてください。</p>
     `);
   } catch (e) {
+    reportHealth("google_auth_error", { source: "authorize_callback", error: errorCode(e) });
     return htmlPage(`<p>エラーが発生しました: ${escapeHtml(e instanceof Error ? e.message : "不明なエラー")}</p>`);
   }
 }

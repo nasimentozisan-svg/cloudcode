@@ -3,6 +3,7 @@
 import { requireAdmin } from "@/lib/require-admin";
 import { getGoogleGrantStatus, isGoogleSyncConfigured } from "@/lib/google-calendar";
 import { sendEmailsVia } from "@/lib/email";
+import { errorCode, reportHealth } from "@/lib/health";
 
 export type GmailStatus =
   | { state: "not_configured" }
@@ -15,6 +16,7 @@ export async function getGmailStatusAction(): Promise<GmailStatus> {
   try {
     return { state: "ok", ...(await getGoogleGrantStatus()) };
   } catch (e) {
+    reportHealth("google_auth_error", { source: "grant_status", error: errorCode(e) });
     return { state: "error", message: e instanceof Error ? e.message : "確認に失敗しました" };
   }
 }
