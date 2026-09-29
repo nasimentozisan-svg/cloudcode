@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import AppShell from "@/components/AppShell";
 import AdminUserTable from "@/components/AdminUserTable";
 import AdminCreateUserForm from "@/components/AdminCreateUserForm";
+import GmailTestSection from "@/components/GmailTestSection";
 import { calculateAttendanceRate, type AttendanceRate } from "@/lib/attendance";
 import { isGoogleSyncConfigured } from "@/lib/google-calendar";
 
@@ -80,6 +81,16 @@ export default async function AdminPage() {
             </a>
           </>
         )}
+      </div>
+
+      <h2 className="mt-10 text-lg font-bold text-gray-900">
+        メール送信（Gmail）の確認
+      </h2>
+      <p className="mt-1 text-sm text-gray-500">
+        通知メールをクラブのGmail（emfrentekumamoto）から送るための確認です。ここからのテストメールは、ログイン中の管理者本人にだけ1通送られます。
+      </p>
+      <div className="mt-4 rounded-xl border border-gray-200 bg-white p-5">
+        <GmailTestSection />
       </div>
     </AppShell>
   );

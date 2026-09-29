@@ -80,3 +80,22 @@ export function getGmailClient() {
   client.setCredentials({ refresh_token: refreshToken });
   return google.gmail({ version: "v1", auth: client });
 }
+
+const GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send";
+const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar";
+
+// Read-only check of what the stored refresh token is allowed to do (asks
+// Google's tokeninfo endpoint; sends nothing, changes nothing).
+export async function getGoogleGrantStatus(): Promise<{ calendar: boolean; gmailSend: boolean }> {
+  const refreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
+  if (!refreshToken) throw new Error("GOOGLE_OAUTH_REFRESH_TOKEN が設定されていません");
+  const client = getOAuth2Client();
+  client.setCredentials({ refresh_token: refreshToken });
+  const { token } = await client.getAccessToken();
+  if (!token) throw new Error("Googleのアクセストークンを取得できませんでした");
+  const info = await client.getTokenInfo(token);
+  return {
+    calendar: info.scopes.includes(CALENDAR_SCOPE),
+    gmailSend: info.scopes.includes(GMAIL_SEND_SCOPE),
+  };
+}

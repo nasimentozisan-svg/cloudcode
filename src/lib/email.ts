@@ -176,14 +176,25 @@ export async function sendNotificationEmails(
   subject: string,
   html: string
 ): Promise<EmailSummary> {
+  return sendEmailsVia(PROVIDER, recipients, subject, html);
+}
+
+// Same as above with an explicit provider - lets the admin test email go
+// through Gmail before EMAIL_PROVIDER switches every notification over.
+export async function sendEmailsVia(
+  provider: "gmail" | "resend",
+  recipients: { email: string }[],
+  subject: string,
+  html: string
+): Promise<EmailSummary> {
   // Same address twice (shouldn't happen - emails are unique per account)
   // still only gets one copy.
   const to = [...new Set(recipients.map((r) => r.email.trim()).filter((e) => e.length > 0))];
-  const summary: EmailSummary = { provider: PROVIDER, target: to.length, sent: 0, failures: {} };
+  const summary: EmailSummary = { provider, target: to.length, sent: 0, failures: {} };
   if (to.length === 0) return summary;
 
   summary.sent =
-    PROVIDER === "gmail"
+    provider === "gmail"
       ? await sendViaGmail(to, subject, html, summary.failures)
       : await sendViaResend(to, subject, html, summary.failures);
   return summary;
