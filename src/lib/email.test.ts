@@ -114,6 +114,55 @@ describe("sendNotificationEmails via Gmail", () => {
     expect((summary.failures.daily_limit ?? 0) + (summary.failures.skipped_limit ?? 0)).toBe(20);
   });
 
+  it("waits out Gmail's per-minute quota and still delivers everything (9/30 production failure)", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      // The exact error production got for a @全員 post: 403 + per-minute quota.
+      const quotaError = Object.assign(
+        new Error(
+          "Quota exceeded for quota metric 'Total Query Cost' and limit 'Units per minute per user' of service 'gmail.googleapis.com' for consumer 'project_number:1'."
+        ),
+        { status: 403 }
+      );
+      let calls = 0;
+      gmailSendMock.mockImplementation(async () => {
+        calls++;
+        // Calls 3-6 land while the quota is exhausted.
+        if (calls >= 3 && calls <= 6) throw quotaError;
+        return { data: { id: "x" } };
+      });
+      const { sendNotificationEmails } = await importEmail({ EMAIL_PROVIDER: "gmail" });
+
+      const pending = sendNotificationEmails(people(10), "s", "h");
+      await vi.advanceTimersByTimeAsync(120_000);
+      const summary = await pending;
+
+      expect(summary).toMatchObject({ target: 10, sent: 10, failures: {} });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("gives up on an address after the backoff runs out, reporting it as rate_limited", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      gmailSendMock.mockRejectedValue(Object.assign(new Error("Quota exceeded for quota metric"), { status: 429 }));
+      const { sendNotificationEmails } = await importEmail({ EMAIL_PROVIDER: "gmail" });
+
+      const pending = sendNotificationEmails(people(1), "s", "h");
+      await vi.advanceTimersByTimeAsync(120_000);
+      const summary = await pending;
+
+      // First try + 3 waits (5s, 20s, 45s) - no endless retrying.
+      expect(gmailSendMock).toHaveBeenCalledTimes(4);
+      expect(summary.failures).toEqual({ rate_limited: 1 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("does not send the same address twice", async () => {
     gmailSendMock.mockResolvedValue({ data: {} });
     const { sendNotificationEmails } = await importEmail({ EMAIL_PROVIDER: "gmail" });

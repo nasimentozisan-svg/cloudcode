@@ -113,11 +113,24 @@ function classifyGmailError(e: unknown): EmailFailureReason {
   const err = e as { code?: number | string; status?: number; message?: string };
   const status = Number(err.status ?? err.code) || 0;
   const message = err.message ?? "";
-  if (/daily.*limit|sending limit/i.test(message)) return "daily_limit";
-  if (status === 429 || /rate limit/i.test(message)) return "rate_limited";
+  if (/daily.*limit|sending limit|per day/i.test(message)) return "daily_limit";
+  // Google reports its per-minute API quota ("Quota exceeded for quota metric
+  // ... 'Units per minute per user'") as a 403 or 429 depending on the
+  // endpoint - either way it clears within a minute, so it's worth waiting for.
+  if (status === 429 || /rate ?limit|quota exceeded|per minute/i.test(message)) return "rate_limited";
   if (status >= 400 && status < 500) return "rejected";
   return "network_error";
 }
+
+// Waits after a per-minute quota hit, growing each time. Together they span
+// a little over a minute, which is the window Gmail's quota resets on.
+const GMAIL_RATE_LIMIT_BACKOFF_MS = [5_000, 20_000, 45_000];
+const GMAIL_NETWORK_RETRY_MS = 2_000;
+
+// Shared by every send in this function instance (e.g. a @全員 post and a
+// new event going out at the same time): once Gmail says "slow down", all
+// of them pause instead of each burning through its own retries.
+let gmailResumeAt = 0;
 
 async function sendViaGmail(
   to: string[],
@@ -145,7 +158,11 @@ async function sendViaGmail(
         continue;
       }
       let reason: EmailFailureReason | null = null;
-      for (let attempt = 0; attempt < 2; attempt++) {
+      let rateLimitRetries = 0;
+      let networkRetries = 0;
+      for (;;) {
+        const wait = gmailResumeAt - Date.now();
+        if (wait > 0) await sleep(wait);
         try {
           await gmail.users.messages.send({
             userId: "me",
@@ -157,8 +174,16 @@ async function sendViaGmail(
           // Only the classified reason and Gmail's own message - never the address.
           console.error("email notification failed: gmail", reason, (e as Error).message);
         }
-        if (reason !== "rate_limited" && reason !== "network_error") break;
-        await sleep(2000);
+        if (reason === "rate_limited" && rateLimitRetries < GMAIL_RATE_LIMIT_BACKOFF_MS.length) {
+          gmailResumeAt = Math.max(gmailResumeAt, Date.now() + GMAIL_RATE_LIMIT_BACKOFF_MS[rateLimitRetries++]);
+          continue;
+        }
+        if (reason === "network_error" && networkRetries < 1) {
+          networkRetries++;
+          await sleep(GMAIL_NETWORK_RETRY_MS);
+          continue;
+        }
+        break;
       }
       if (reason === "daily_limit") limitReached = true;
       if (reason) failures[reason] = (failures[reason] ?? 0) + 1;
