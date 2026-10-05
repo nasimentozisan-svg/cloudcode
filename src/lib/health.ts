@@ -13,6 +13,9 @@ export type HealthKind =
   | "calendar_sync_failed"
   | "google_auth_error"
   | "auth_error"
+  | "db_retry"
+  | "db_error"
+  | "db_slow_connect"
   | "slow";
 
 export type HealthFields = Record<string, string | number | boolean | null | undefined>;
