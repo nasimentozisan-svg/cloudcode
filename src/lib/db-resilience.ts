@@ -18,9 +18,11 @@ export const POOL_OPTIONS: PoolConfig = {
   // Opening a connection (TCP + TLS + auth) normally takes ~0.3s in
   // production; ten times that means this attempt is stuck - retry instead.
   connectionTimeoutMillis: 3_000,
-  // Every query this app runs finishes in well under a second; anything
-  // still waiting after this is a dead socket, not a slow query.
-  query_timeout: 8_000,
+  // Every query this app runs finishes in well under a second (production:
+  // ~10ms reused, ~0.3s on a new connection); anything still waiting after
+  // this is a stalled connection, not a slow query. 4s (was 8s) cut waits
+  // over 5s by ~90% in the stall simulation with no extra load when healthy.
+  query_timeout: 4_000,
   // Lets the OS notice a connection that died while the instance was running.
   keepAlive: true,
   keepAliveInitialDelayMillis: 10_000,
@@ -55,24 +57,39 @@ export function isConnectionError(error: unknown): boolean {
   return false;
 }
 
-const MAX_READ_ATTEMPTS = 3;
+const MAX_READ_ATTEMPTS = 4;
+// Pause before the 2nd/3rd/4th attempt. The first retry is immediate (most
+// stalls affect one connection, a fresh one usually answers at once); later
+// ones back off a little so a database that is down isn't hammered.
+const RETRY_DELAYS_MS = [0, 200, 400];
+// No new attempt starts after this much time has passed, which bounds the
+// wait during a longer outage (~16s, or ~23s if the last attempt also runs
+// into its own connect + query limits).
+const RETRY_DEADLINE_MS = 16_000;
 
-// Runs a read again (up to 3 attempts) after a connection-level failure.
-// Each retry gets a new connection: pg drops a client that errored instead
-// of reusing it. Writes are never retried - a dropped connection may have
-// already committed them.
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Runs a read again (up to 4 attempts, within RETRY_DEADLINE_MS) after a
+// connection-level failure. Each retry gets a new connection: pg drops a
+// client that errored instead of reusing it. Writes are never retried - a
+// dropped connection may have already committed them.
 export async function withRetry<T>(operation: string, run: () => Promise<T>): Promise<T> {
+  const startedAt = Date.now();
   for (let attempt = 1; ; attempt++) {
     try {
       return await run();
     } catch (error) {
-      if (attempt >= MAX_READ_ATTEMPTS || !RETRYABLE_OPERATIONS.has(operation) || !isConnectionError(error)) {
+      const retryable = RETRYABLE_OPERATIONS.has(operation) && isConnectionError(error);
+      const delay = RETRY_DELAYS_MS[attempt - 1] ?? 0;
+      const outOfTime = Date.now() - startedAt + delay >= RETRY_DEADLINE_MS;
+      if (!retryable || attempt >= MAX_READ_ATTEMPTS || outOfTime) {
         if (isConnectionError(error)) {
           reportHealth("db_error", { op: operation, attempts: attempt, retried: RETRYABLE_OPERATIONS.has(operation) });
         }
         throw error;
       }
       reportHealth("db_retry", { op: operation, attempt });
+      if (delay > 0) await sleep(delay);
     }
   }
 }
