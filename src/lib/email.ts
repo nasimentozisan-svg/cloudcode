@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Resend } from "resend";
 import { getGmailClient } from "@/lib/google-calendar";
 
@@ -30,7 +31,11 @@ export type EmailFailureReason =
   | "sender_not_verified" // Resend testing mode: no verified domain
   | "rate_limited"
   | "rejected"
-  | "network_error"
+  | "network_error" // never reached the provider, so nothing was sent
+  // The request may have reached the provider (timeout, dropped connection,
+  // 5xx) - it might already have been delivered. Not retried where a retry
+  // could deliver a second copy.
+  | "unknown_result"
   | "skipped_limit"; // not attempted: an earlier send hit daily_limit
 
 export type EmailSummary = {
@@ -51,8 +56,14 @@ function classifyResendError(error: { statusCode?: number | null; name?: string;
   }
   if (status === 429 && /quota|daily/i.test(`${error.name} ${error.message}`)) return "daily_limit" as const;
   if (status === 429) return "rate_limited" as const;
+  // The SDK never throws: a request that got no response at all comes back
+  // as statusCode null. That, a 5xx, or a 409 for "the same idempotency key
+  // is still being processed" all mean the batch may or may not have gone out.
+  if (status === 0 || status >= 500 || status === 409) return "unknown_result" as const;
   return "rejected" as const;
 }
+
+const RESEND_ATTEMPTS = 2;
 
 async function sendViaResend(
   to: string[],
@@ -65,23 +76,28 @@ async function sendViaResend(
     return 0;
   }
   let sent = 0;
+  // One key per notification; each batch adds its index. Resend keeps a key
+  // for 24 hours and answers a repeat with the original result instead of
+  // sending again, so retrying a batch whose outcome is unknown is safe.
+  const notificationKey = randomUUID();
   // One batch request per 100 recipients instead of one request each:
   // firing ~90 requests at once blew through Resend's per-second rate limit.
   for (let i = 0; i < to.length; i += RESEND_BATCH_SIZE) {
     const chunk = to.slice(i, i + RESEND_BATCH_SIZE);
     const payload = chunk.map((address) => ({ from: FROM, to: address, subject, html }));
+    const idempotencyKey = `efk-notify/${notificationKey}/${i / RESEND_BATCH_SIZE}`;
     let reason: EmailFailureReason | null = null;
-    for (let attempt = 0; attempt < 2; attempt++) {
+    for (let attempt = 0; attempt < RESEND_ATTEMPTS; attempt++) {
       try {
-        const { error } = await resend.batch.send(payload);
+        const { error } = await resend.batch.send(payload, { idempotencyKey });
         reason = error ? classifyResendError(error) : null;
         if (error) console.error("email notification failed:", error);
       } catch (e) {
-        reason = "network_error";
+        reason = "unknown_result";
         console.error("email notification failed:", e);
       }
-      if (reason !== "rate_limited" && reason !== "network_error") break;
-      await sleep(1000);
+      if (reason !== "rate_limited" && reason !== "unknown_result") break;
+      if (attempt < RESEND_ATTEMPTS - 1) await sleep(1000);
     }
     if (reason) failures[reason] = (failures[reason] ?? 0) + chunk.length;
     else sent += chunk.length;
@@ -109,9 +125,34 @@ export function buildGmailRaw(to: string, subject: string, html: string): string
   return Buffer.from(message).toString("base64url");
 }
 
+// Network errors that happen before the request reaches Google (name lookup,
+// refused or unreachable connection, TLS setup), so nothing can have been
+// sent. Anything else without an HTTP status - a timeout, a connection reset
+// mid-request - may have come after Gmail accepted the message.
+const GMAIL_NOT_SENT_CODES = new Set([
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "ECONNREFUSED",
+  "ENETUNREACH",
+  "EHOSTUNREACH",
+  "CERT_HAS_EXPIRED",
+  "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+  "DEPTH_ZERO_SELF_SIGNED_CERT",
+  "ERR_TLS_CERT_ALTNAME_INVALID",
+]);
+
 function classifyGmailError(e: unknown): EmailFailureReason {
-  const err = e as { code?: number | string; status?: number; message?: string };
-  const status = Number(err.status ?? err.code) || 0;
+  const err = e as {
+    code?: number | string;
+    status?: number;
+    message?: string;
+    cause?: { code?: string };
+    config?: { url?: unknown };
+  };
+  // gaxios puts the HTTP status in `status`, and sometimes also in `code`
+  // (as a number or a numeric string); a system error's `code` is a name.
+  const numericCode = typeof err.code === "number" || /^\d+$/.test(String(err.code)) ? Number(err.code) : undefined;
+  const status = Number(err.status ?? numericCode) || 0;
   const message = err.message ?? "";
   if (/daily.*limit|sending limit|per day/i.test(message)) return "daily_limit";
   // Google reports its per-minute API quota ("Quota exceeded for quota metric
@@ -119,7 +160,12 @@ function classifyGmailError(e: unknown): EmailFailureReason {
   // endpoint - either way it clears within a minute, so it's worth waiting for.
   if (status === 429 || /rate ?limit|quota exceeded|per minute/i.test(message)) return "rate_limited";
   if (status >= 400 && status < 500) return "rejected";
-  return "network_error";
+  const code = typeof err.code === "string" && numericCode === undefined ? err.code : err.cause?.code;
+  if (code && GMAIL_NOT_SENT_CODES.has(code)) return "network_error";
+  // The access-token refresh runs before the send request; if that is what
+  // failed, the message itself was never sent.
+  if (/oauth2\.googleapis\.com\/token/.test(String(err.config?.url ?? ""))) return "network_error";
+  return "unknown_result";
 }
 
 // Waits after a per-minute quota hit, growing each time. Together they span
@@ -178,6 +224,9 @@ async function sendViaGmail(
           gmailResumeAt = Math.max(gmailResumeAt, Date.now() + GMAIL_RATE_LIMIT_BACKOFF_MS[rateLimitRetries++]);
           continue;
         }
+        // Only failures where nothing was sent are retried: the Gmail API has
+        // no idempotency key, so retrying an unknown_result could deliver a
+        // second copy.
         if (reason === "network_error" && networkRetries < 1) {
           networkRetries++;
           await sleep(GMAIL_NETWORK_RETRY_MS);

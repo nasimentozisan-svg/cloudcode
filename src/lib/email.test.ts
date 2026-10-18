@@ -72,6 +72,127 @@ describe("sendNotificationEmails via Resend", () => {
     expect(batchSendMock).toHaveBeenCalledTimes(2);
     expect(summary.sent).toBe(2);
   });
+
+  it("gives every batch its own idempotency key and reuses it on the retry", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    // First batch: the SDK reports "no response" (statusCode null) - it may
+    // have gone out - then succeeds on the retry. Second batch: fine at once.
+    batchSendMock
+      .mockResolvedValueOnce({ data: null, error: { statusCode: null, name: "application_error", message: "Unable to fetch data." } })
+      .mockResolvedValue({ data: {}, error: null });
+    const { sendNotificationEmails } = await importEmail({ RESEND_API_KEY: "k" });
+
+    const summary = await sendNotificationEmails(people(150), "s", "h");
+
+    const keys = batchSendMock.mock.calls.map(([, options]) => (options as { idempotencyKey: string }).idempotencyKey);
+    expect(keys).toHaveLength(3);
+    expect(keys[0]).toBe(keys[1]); // the retry of batch 1 is the same request to Resend
+    expect(keys[2]).not.toBe(keys[0]);
+    expect(keys[0]).toMatch(/^efk-notify\/[0-9a-f-]{36}\/0$/);
+    expect(keys[2]).toMatch(/\/1$/);
+    expect(summary).toMatchObject({ target: 150, sent: 150, failures: {} });
+  });
+
+  it("uses a fresh key for each notification, so a later notification is never swallowed", async () => {
+    batchSendMock.mockResolvedValue({ data: {}, error: null });
+    const { sendNotificationEmails } = await importEmail({ RESEND_API_KEY: "k" });
+
+    await sendNotificationEmails(people(1), "s", "h");
+    await sendNotificationEmails(people(1), "s", "h");
+
+    const [first, second] = batchSendMock.mock.calls.map(([, o]) => (o as { idempotencyKey: string }).idempotencyKey);
+    expect(first).not.toBe(second);
+  });
+
+  it("reports a batch that still has no answer after the retry as unknown_result, not as sent", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    batchSendMock.mockResolvedValue({ data: null, error: { statusCode: 503, name: "application_error", message: "Service Unavailable" } });
+    const { sendNotificationEmails } = await importEmail({ RESEND_API_KEY: "k" });
+
+    const summary = await sendNotificationEmails(people(4), "s", "h");
+
+    expect(batchSendMock).toHaveBeenCalledTimes(2);
+    expect(summary).toMatchObject({ sent: 0, failures: { unknown_result: 4 } });
+  });
+
+  it("does not retry a definite rejection (e.g. invalid address)", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    batchSendMock.mockResolvedValue({ data: null, error: { statusCode: 422, name: "validation_error", message: "Invalid `to` field." } });
+    const { sendNotificationEmails } = await importEmail({ RESEND_API_KEY: "k" });
+
+    const summary = await sendNotificationEmails(people(2), "s", "h");
+
+    expect(batchSendMock).toHaveBeenCalledTimes(1);
+    expect(summary.failures).toEqual({ rejected: 2 });
+  });
+});
+
+describe("sendNotificationEmails via Gmail: retry only when nothing was sent", () => {
+  async function sendOneWith(error: unknown) {
+    vi.useFakeTimers();
+    try {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      gmailSendMock.mockRejectedValueOnce(error).mockResolvedValue({ data: { id: "x" } });
+      const { sendNotificationEmails } = await importEmail({ EMAIL_PROVIDER: "gmail" });
+      const pending = sendNotificationEmails(people(1), "s", "h");
+      await vi.advanceTimersByTimeAsync(10_000);
+      return await pending;
+    } finally {
+      vi.useRealTimers();
+    }
+  }
+
+  it.each([
+    ["DNS lookup failed", Object.assign(new Error("getaddrinfo ENOTFOUND gmail.googleapis.com"), { code: "ENOTFOUND" })],
+    ["connection refused", Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" })],
+    ["wrapped in a cause", Object.assign(new Error("request failed"), { cause: { code: "EAI_AGAIN" } })],
+    [
+      "access-token refresh failed",
+      Object.assign(new Error("socket hang up"), { code: "ECONNRESET", config: { url: "https://oauth2.googleapis.com/token" } }),
+    ],
+  ])("retries once when the message certainly was not sent (%s)", async (_label, error) => {
+    const summary = await sendOneWith(error);
+
+    expect(gmailSendMock).toHaveBeenCalledTimes(2);
+    expect(summary).toMatchObject({ sent: 1, failures: {} });
+  });
+
+  it.each([
+    ["timeout", Object.assign(new Error("request to https://gmail.googleapis.com timed out"), { code: "ETIMEDOUT" })],
+    ["connection reset mid-request", Object.assign(new Error("socket hang up"), { code: "ECONNRESET" })],
+    ["Gmail 500", Object.assign(new Error("Backend Error"), { status: 500, code: 500 })],
+    ["Gmail 503 (status as string code)", Object.assign(new Error("Service Unavailable"), { code: "503" })],
+    ["unrecognised error", new Error("something odd")],
+  ])("does not resend when the result is unknown (%s) - it may already have been delivered", async (_label, error) => {
+    const summary = await sendOneWith(error);
+
+    expect(gmailSendMock).toHaveBeenCalledTimes(1);
+    expect(summary).toMatchObject({ sent: 0, failures: { unknown_result: 1 } });
+  });
+
+  it("does not retry a definite rejection (400 invalid recipient)", async () => {
+    const summary = await sendOneWith(Object.assign(new Error("Invalid To header"), { status: 400 }));
+
+    expect(gmailSendMock).toHaveBeenCalledTimes(1);
+    expect(summary.failures).toEqual({ rejected: 1 });
+  });
+
+  it("retries a network failure at most once", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      gmailSendMock.mockRejectedValue(Object.assign(new Error("getaddrinfo ENOTFOUND"), { code: "ENOTFOUND" }));
+      const { sendNotificationEmails } = await importEmail({ EMAIL_PROVIDER: "gmail" });
+      const pending = sendNotificationEmails(people(1), "s", "h");
+      await vi.advanceTimersByTimeAsync(10_000);
+      const summary = await pending;
+
+      expect(gmailSendMock).toHaveBeenCalledTimes(2);
+      expect(summary.failures).toEqual({ network_error: 1 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe("sendNotificationEmails via Gmail", () => {
