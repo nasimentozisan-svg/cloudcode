@@ -9,11 +9,19 @@
 //                               currently live version keeps running
 //   - database unreachable   -> build stops (as it did before this script,
 //                               when the build ran `prisma migrate deploy`)
+//   - database not answering    -> gives up after GATE_TIMEOUT_MS and stops
+//                                  the build (instead of hanging it)
 import { spawnSync } from "node:child_process";
 
+const TIMEOUT_MS = Number(process.env.GATE_TIMEOUT_MS) || 180_000;
+
 function prisma(args) {
-  const r = spawnSync("npx", ["prisma", ...args], { encoding: "utf8" });
-  return { code: r.status ?? 1, out: `${r.stdout ?? ""}${r.stderr ?? ""}` };
+  const r = spawnSync("npx", ["prisma", ...args], { encoding: "utf8", timeout: TIMEOUT_MS, killSignal: "SIGKILL" });
+  const timedOut = r.error?.code === "ETIMEDOUT" || r.signal === "SIGKILL";
+  return {
+    code: timedOut ? 1 : (r.status ?? 1),
+    out: `${r.stdout ?? ""}${r.stderr ?? ""}${timedOut ? `\n[db-migrate-gate] prisma ${args.join(" ")} timed out after ${TIMEOUT_MS}ms\n` : ""}`,
+  };
 }
 
 if (process.env.RUN_DB_MIGRATIONS === "1") {
