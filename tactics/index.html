@@ -76,9 +76,9 @@
   .fab-label.show { opacity: 1; }
 
   /* Bottom dock occupies its own viewport space; never covers the court. */
-  :root { --dock-height: 61px; }
-  html, body { height: 100%; overflow: hidden; }
-  .wrap { height: calc(100vh - var(--dock-height) - env(safe-area-inset-bottom, 0px)); height: calc(100dvh - var(--dock-height) - env(safe-area-inset-bottom, 0px)); max-width: 1100px; padding: 8px max(8px, env(safe-area-inset-right, 0px)) 8px max(8px, env(safe-area-inset-left, 0px)); display: flex; flex-direction: column; gap: 6px; }
+  :root { --dock-height: 96px; }
+  /* Page overflow remains browser-default, as before the update. */
+  .wrap { height: auto; max-width: 1100px; padding: 8px max(8px, env(safe-area-inset-right, 0px)) calc(var(--dock-height) + 16px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); display: flex; flex-direction: column; gap: 6px; }
   .wrap > div:first-of-type + div { flex-shrink: 0; }
   h1 { font-size: 19px; }
   .toolbar { margin: 0; gap: 6px; flex-shrink: 0; }
@@ -86,16 +86,18 @@
   .toolbar-label { display: none; }
   .btn { min-height: 44px; justify-content: center; }
   #arrow-controls .swatch { width: 44px; height: 44px; }
-  .board-stage { flex: 1; min-height: 0; padding: 4px; }
-  #court-svg { width: 100%; height: 100%; max-width: 100%; }
+  .board-stage { flex: none; min-height: 0; padding: 4px; }
+  #court-svg { width: 100%; height: auto; max-width: 100%; }
   .roster-legend, .hint { display: none; }
   .bottom-dock { position: fixed; z-index: 60; left: 0; right: 0; bottom: 0; background: #0a1710; border-top: 1px solid #405247; padding: 8px max(8px, env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); }
-  .dock-inner { max-width: 1084px; margin: auto; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
-  .dock-inner .btn { min-width: 0; height: 44px; padding: 2px; font-size: 12px; white-space: normal; line-height: 1.1; }
+  .dock-inner { padding-right: 86px; max-width: 1084px; margin: auto; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+  .dock-inner .btn { min-width: 0; height: 44px; padding: 2px; font-size: 12px; white-space: normal; line-height: 1.1; gap: 0; flex-direction: column; }
   .dock-inner .btn.active { box-shadow: inset 0 -3px 0 #765900; }
   .btn:focus-visible, .swatch:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
   @media (max-width: 359px) { .dock-inner .btn { font-size: 11px; } .dock-inner .btn { flex-direction: column; gap: 0; } .dock-inner .split { display: block; } }
-  @media (orientation: landscape) and (max-height: 600px) { .wrap { flex-direction: row; gap: 8px; } .app-heading { display: none !important; } .toolbar { width: 150px; min-width: 0; overflow-y: auto; overflow-x: hidden; } .toolbar-row { align-content: flex-start; } .toolbar .btn { width: 100%; white-space: normal; } #arrow-controls .btn { width: 100%; } .board-stage { height: 100%; } }
+
+  .fab-mode { z-index: 61; right: max(18px, env(safe-area-inset-right, 0px)); bottom: calc(22px + env(safe-area-inset-bottom, 0px)); }
+  .fab-label { z-index: 62; bottom: calc(90px + env(safe-area-inset-bottom, 0px)); }
 </style>
 </head>
 <body>
@@ -144,13 +146,13 @@
 
 <nav class="bottom-dock" aria-label="戦術ボードの操作とエリア表示">
 <div class="dock-inner">
-<button type="button" class="btn active" id="mode-move" aria-pressed="true">選手<span class="split">移動</span></button>
-<button type="button" class="btn" id="mode-draw" aria-pressed="false">矢印</button>
 <button type="button" class="btn" id="zone-3lane" aria-pressed="false">3レーン</button>
 <button type="button" class="btn" id="zone-4lane" aria-pressed="false">4レーン</button>
-<button type="button" class="btn" id="zone-3zone" aria-pressed="false">ゾーン<span class="split">123</span></button>
+<button type="button" class="btn" id="zone-3zone" aria-pressed="false">ゾーン</button>
 <button type="button" class="btn" id="zone-goalsq" aria-label="ゴール前10m" aria-pressed="false">10m</button>
 </div></nav>
+<span class="fab-label" id="fab-label">🖐 選手移動中</span>
+<button class="fab-mode" id="fab-mode-toggle" aria-label="モード切替">🖐</button>
 
 <script>
 (function () {
@@ -779,18 +781,30 @@
   }
 
   // ---- ツールバー ----
+  var fabLabelTimer = null;
   function setMode(mode) {
     cancelBoardInteraction();
     state.mode = mode;
-    ["move", "draw"].forEach(function (key) {
-      var button = document.getElementById("mode-" + key);
-      button.classList.toggle("active", mode === key);
-      button.setAttribute("aria-pressed", String(mode === key));
-    });
     document.getElementById("arrow-controls").style.display = mode === "draw" ? "flex" : "none";
+
+    var fab = document.getElementById("fab-mode-toggle");
+    var fabLabel = document.getElementById("fab-label");
+    if (mode === "draw") {
+      fab.textContent = "✏️";
+      fab.classList.add("draw-mode");
+      fabLabel.textContent = "✏️ 矢印モード中";
+    } else {
+      fab.textContent = "🖐";
+      fab.classList.remove("draw-mode");
+      fabLabel.textContent = "🖐 選手移動中";
+    }
+    fabLabel.classList.add("show");
+    clearTimeout(fabLabelTimer);
+    fabLabelTimer = setTimeout(function () { fabLabel.classList.remove("show"); }, 1600);
   }
-  document.getElementById("mode-move").addEventListener("click", function () { setMode("move"); });
-  document.getElementById("mode-draw").addEventListener("click", function () { setMode("draw"); });
+  document.getElementById("fab-mode-toggle").addEventListener("click", function () {
+    setMode(state.mode === "move" ? "draw" : "move");
+  });
 
   document.getElementById("magnet-toggle").addEventListener("click", function (evt) {
     state.magnetMode = !state.magnetMode;
