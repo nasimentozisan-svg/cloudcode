@@ -177,18 +177,20 @@
 
   function defaultPlayers() {
     return [
-      { id: "A1", team: "A", num: 1, isGK: true, color: RED, cx: 120, cy: 26 },
-      { id: "A2", team: "A", num: 1, isGK: false, color: GREEN, cx: 55, cy: 130 },
-      { id: "A3", team: "A", num: 2, isGK: false, color: GREEN, cx: 185, cy: 130 },
-      { id: "A4", team: "A", num: 3, isGK: false, color: GREEN, cx: 85, cy: 210 },
-      { id: "A5", team: "A", num: 4, isGK: false, color: GREEN, cx: 155, cy: 210 },
-      { id: "B1", team: "B", num: 1, isGK: true, color: GRAY, cx: 120, cy: 454 },
-      { id: "B2", team: "B", num: 1, isGK: false, color: BLUE, cx: 55, cy: 350 },
-      { id: "B3", team: "B", num: 2, isGK: false, color: BLUE, cx: 185, cy: 350 },
-      { id: "B4", team: "B", num: 3, isGK: false, color: BLUE, cx: 85, cy: 270 },
-      { id: "B5", team: "B", num: 4, isGK: false, color: BLUE, cx: 155, cy: 270 }
+      { id: "A1", team: "A", num: 1, isGK: true, color: RED, cx: 120, cy: 26.22 },
+      { id: "A2", team: "A", num: 1, isGK: false, color: GREEN, cx: 69.11, cy: 261.62 },
+      { id: "A3", team: "A", num: 2, isGK: false, color: GREEN, cx: 97.96, cy: 127.51 },
+      { id: "A4", team: "A", num: 3, isGK: false, color: GREEN, cx: 112.79, cy: 298.85 },
+      { id: "A5", team: "A", num: 4, isGK: false, color: GREEN, cx: 173.29, cy: 254.81 },
+      { id: "B1", team: "B", num: 1, isGK: true, color: GRAY, cx: 120, cy: 453.78 },
+      { id: "B2", team: "B", num: 1, isGK: false, color: BLUE, cx: 16.62, cy: 315.66 },
+      { id: "B3", team: "B", num: 2, isGK: false, color: BLUE, cx: 231.39, cy: 330.07 },
+      { id: "B4", team: "B", num: 3, isGK: false, color: BLUE, cx: 105.98, cy: 348.09 },
+      { id: "B5", team: "B", num: 4, isGK: false, color: BLUE, cx: 93.96, cy: 172.34 }
     ];
   }
+
+  function defaultBallPos() { return { cx: 111.18, cy: 430.16 }; }
 
   // CK(コーナーキック)表示に切り替えたときの初期配置
   // 守備側=Aチーム(緑/赤GK)、攻撃側=Bチーム(青/灰GK)
@@ -230,7 +232,7 @@
     magnetMode: false,
     arrowColor: "#f4f7f2",
     players: defaultPlayers(),
-    ball: { cx: FULL_W / 2, cy: FULL_H / 2 },
+    ball: defaultBallPos(),
     arrows: [] // { color, points: [[x,y],...] }
   };
 
@@ -819,7 +821,7 @@
       state.ball = ckBallPos();
     } else {
       state.players = defaultPlayers();
-      state.ball = { cx: FULL_W / 2, cy: FULL_H / 2 };
+      state.ball = defaultBallPos();
     }
     state.arrows = [];
     buildBoard();
@@ -868,7 +870,7 @@
       state.ball = ckBallPos();
     } else {
       state.players = defaultPlayers();
-      state.ball = { cx: FULL_W / 2, cy: FULL_H / 2 };
+      state.ball = defaultBallPos();
     }
     state.arrows = [];
     drawPlayers();
