@@ -6,7 +6,7 @@ import { startTiming } from "@/lib/timing";
 import { prisma } from "@/lib/prisma";
 import { canAccessChannel, ensureDefaultChannels } from "@/lib/channels";
 import { formatJST } from "@/lib/datetime";
-import { isViewOnly } from "@/lib/categories";
+import { isViewOnly, formatCategories } from "@/lib/categories";
 import AppShell from "@/components/AppShell";
 import MessageComposer from "@/components/MessageComposer";
 import MessageBody from "@/components/MessageBody";
@@ -16,6 +16,9 @@ import ScrollToBottomAnchor from "@/components/ScrollToBottomAnchor";
 import ChannelDeleteButton from "@/components/ChannelDeleteButton";
 import ChannelLeaveButton from "@/components/ChannelLeaveButton";
 import MessageDeleteButton from "@/components/MessageDeleteButton";
+import ChannelParticipantInvite from "@/components/ChannelParticipantInvite";
+import { canAddChannelParticipants } from "@/lib/channel-participant-permissions";
+import ChannelParticipants from "@/components/ChannelParticipants";
 
 export default async function ChannelPage({
   params,
@@ -117,16 +120,28 @@ export default async function ChannelPage({
         <p className="text-sm text-gray-500">{channel.description}</p>
       )}
 
+      <ChannelParticipants members={allUsers
+        .filter(candidate => !isViewOnly(candidate.categories.map(c => c.category)) && canAccessChannel(candidate, channel))
+        .map(candidate => ({ id: candidate.id, name: candidate.name }))
+        .sort((a, b) => a.name.localeCompare(b.name, "ja"))}>
+        {canAddChannelParticipants(user, channel) && (
+          <ChannelParticipantInvite channelId={channel.id} candidates={allUsers
+            .filter(candidate => !isViewOnly(candidate.categories.map(c => c.category)) && !canAccessChannel(candidate, channel))
+            .map(candidate => ({ id: candidate.id, name: candidate.name, categoryLabel: formatCategories(candidate.categories.map(c => c.category)) }))
+            .sort((a, b) => a.name.localeCompare(b.name, "ja"))} />
+        )}
+      </ChannelParticipants>
+
       <div className="mt-4 flex h-[60vh] flex-col rounded-xl border border-gray-200 bg-white">
-        <div className="flex-1 space-y-4 overflow-y-auto p-4">
+        <div className="flex-1 space-y-4 overflow-y-auto bg-gray-50 p-3 sm:p-4">
           {messages.length === 0 && (
             <p className="text-sm text-gray-400">まだメッセージはありません。</p>
           )}
           {messages.map((m) => (
-            <div key={m.id}>
-              <p className="flex items-center gap-2 text-xs text-gray-400">
+            <div key={m.id} className={`rounded-xl border p-3 sm:p-4 ${m.author?.id === user.id ? "border-emerald-200 bg-emerald-50/60" : "border-gray-200 bg-white"}`}>
+              <p className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
                 <span>
-                  {m.author?.name ?? "退会済みメンバー"}{" "}
+                  <strong className="mr-2 text-sm font-semibold text-gray-900">{m.author?.name ?? "退会済みメンバー"}</strong>{" "}
                   {formatJST(m.createdAt, {
                     month: "numeric",
                     day: "numeric",
@@ -159,7 +174,7 @@ export default async function ChannelPage({
               )}
               <MessageReactions messageId={m.id} reactions={m.reactions} currentUserId={user.id} />
               {readCountFor(m) > 0 && (
-                <p className="mt-0.5 text-right text-[10px] text-gray-400">
+                <p className="mt-0.5 text-right text-xs text-gray-500">
                   既読{readCountFor(m)}
                 </p>
               )}

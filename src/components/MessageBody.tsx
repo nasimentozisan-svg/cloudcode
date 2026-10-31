@@ -33,7 +33,7 @@ export default function MessageBody({
   const segments = body.split(BOLD_PATTERN);
 
   return (
-    <p className="whitespace-pre-wrap break-words text-sm text-gray-800">
+    <p className="whitespace-pre-wrap break-words text-base leading-7 text-gray-800 [overflow-wrap:anywhere]">
       {segments.map((segment, i) => {
         const isBold = segment.startsWith("**") && segment.endsWith("**") && segment.length > 4;
         const text = isBold ? segment.slice(2, -2) : segment;
